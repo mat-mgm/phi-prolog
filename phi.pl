@@ -486,9 +486,10 @@ can_solve_eq_learned(EqName, State, TargetName, Expr) :-
     forall(member(V, Required), var_known(State, V)).
 
 % solve_state(State, Target, Path, Value)
-solve_state(State, Target, Path, Value) :-
+% solve_goals(State, Goals, Path, FinalState)
+solve_goals(State, Goals, Path, FinalState) :-
     heuristic(State, H),
-    astar([[State, 0, H, []]], Target, Path, Value).
+    astar_multi([[State, 0, H, []]], Goals, Path, FinalState).
 
 heuristic(State, H) :-
     include(unknown_var, State, Unknowns),
@@ -496,12 +497,11 @@ heuristic(State, H) :-
 
 unknown_var(var(_, Val, _, _)) :- var(Val).
 
-% astar(Queue, Target, Path, Value)
-astar([[State, _, _, Path]|_], Target, Path, Value) :-
-    get_var(Target, State, var(Target, Value, _, _)),
-    nonvar(Value), !.
+% astar_multi(Queue, Goals, Path, FinalState)
+astar_multi([[State, _, _, Path]|_], Goals, Path, State) :-
+    forall(member(G, Goals), var_known(State, G)), !.
 
-astar([[State, G, _, Path]|Rest], Target, FinalPath, Value) :-
+astar_multi([[State, G, _, Path]|Rest], Goals, FinalPath, FinalState) :-
     findall([NextState, G2, F, [Step|Path]],
         (
             % Option 1: Single equation step
@@ -522,17 +522,16 @@ astar([[State, G, _, Path]|Rest], Target, FinalPath, Value) :-
             heuristic(NextState, H),
             F is G2 + H
         ;
-            % Option 2: Simultaneous equation system step
-            can_solve_simultaneous(EqName1, EqName2, State, TargetName, Target2, Eq1, Eq2),
-            substitute_vars_simultaneous(Eq1, State, [TargetName, Target2], [LV1, LV2], SubEq1),
-            substitute_vars_simultaneous(Eq2, State, [TargetName, Target2], [LV1, LV2], SubEq2),
-            evaluate_simultaneous(SubEq1, SubEq2, LV1, LV2, Val1, Val2),
+            % Option 2: Simultaneous equation system step (supports N >= 2 variables/equations)
+            find_simultaneous_system(State, EqNames, Unknowns),
+            length(Unknowns, L),
+            length(LogicVars, L),
+            maplist(get_base_eq, EqNames, EqTerms),
+            maplist(substitute_system_eq(State, Unknowns, LogicVars), EqTerms, SubEqs),
+            evaluate_system(SubEqs, LogicVars, Vals),
             copy_term(State, NextState),
-            get_var(TargetName, NextState, var(TargetName, NewVal1, _, _)),
-            NewVal1 = Val1,
-            get_var(Target2, NextState, var(Target2, NewVal2, _, _)),
-            NewVal2 = Val2,
-            Step = step_simultaneous(EqName1, EqName2, TargetName, Target2, Val1, Val2),
+            bind_system_vars(Unknowns, Vals, NextState),
+            Step = step_system(EqNames, Unknowns, Vals),
             G2 is G + 1,
             heuristic(NextState, H),
             F is G2 + H
@@ -541,7 +540,7 @@ astar([[State, G, _, Path]|Rest], Target, FinalPath, Value) :-
 
     append(Rest, Children, Open),
     keys_sort_by_f(Open, SortedOpen),
-    astar(SortedOpen, Target, FinalPath, Value).
+    astar_multi(SortedOpen, Goals, FinalPath, FinalState).
 
 keys_sort_by_f(Queue, Sorted) :-
     map_list_to_pairs(get_f_score, Queue, Pairs),
@@ -550,34 +549,60 @@ keys_sort_by_f(Queue, Sorted) :-
 
 get_f_score([_, _, F, _], F).
 
-can_solve_simultaneous(EqName1, EqName2, State, V1, V2, Eq1, Eq2) :-
-    EqName1 @< EqName2,
-    base_eq(EqName1, Eq1),
-    base_eq(EqName2, Eq2),
-    expr_vars(Eq1, Vars1),
-    expr_vars(Eq2, Vars2),
-    union(Vars1, Vars2, AllVars),
-    member(V1, AllVars),
-    member(V2, AllVars),
-    V1 @< V2,
-    \+ var_known(State, V1),
-    \+ var_known(State, V2),
-    subtract(AllVars, [V1, V2], Others),
-    forall(member(O, Others), var_known(State, O)).
+get_base_eq(Name, Eq) :- base_eq(Name, Eq).
 
-evaluate_simultaneous(SubEq1, SubEq2, LV1, LV2, Val1, Val2) :-
+substitute_system_eq(State, Unknowns, LogicVars, Eq, SubEq) :-
+    substitute_vars_simultaneous(Eq, State, Unknowns, LogicVars, SubEq).
+
+evaluate_system(SubEqs, LogicVars, Vals) :-
     catch(
         (
-            clpr_post(SubEq1),
-            clpr_post(SubEq2),
-            ground(LV1),
-            ground(LV2)
+            maplist(clpr_post, SubEqs),
+            maplist(ground, LogicVars)
         ),
         _,
         fail
     ),
-    Val1 = LV1,
-    Val2 = LV2.
+    Vals = LogicVars.
+
+bind_system_vars([], [], _).
+bind_system_vars([U|Us], [V|Vs], State) :-
+    get_var(U, State, var(U, VarVal, _, _)),
+    VarVal = V,
+    bind_system_vars(Us, Vs, State).
+
+find_simultaneous_system(State, SortedEqNames, SortedUnknowns) :-
+    % Collect all base equations
+    findall(eq(Name, Eq), base_eq(Name, Eq), AllEqs),
+    % Find all unknown variables in State
+    findall(V, (member(var(V, Val, _, _), State), var(Val)), AllUnknowns),
+    % Try different sizes N of the system
+    member(N, [2, 3, 4]),
+    choose_n(N, AllEqs, SelectedEqs),
+    maplist(get_eq_term, SelectedEqs, EqTerms),
+    maplist(expr_vars, EqTerms, EqVarsList),
+    flatten(EqVarsList, AllVars),
+    list_to_set(AllVars, UniqueVars),
+    intersection(UniqueVars, AllUnknowns, Unknowns),
+    length(Unknowns, N),
+    subtract(UniqueVars, Unknowns, OtherVars),
+    forall(member(O, OtherVars), (O == g_const ; var_known(State, O))),
+    maplist(get_eq_name, SelectedEqs, EqNames),
+    sort(EqNames, SortedEqNames),
+    sort(Unknowns, SortedUnknowns).
+
+get_eq_term(eq(_, Eq), Eq).
+get_eq_name(eq(Name, _), Name).
+
+choose_n(0, _, []) :- !.
+choose_n(N, [X|Xs], [X|Ys]) :-
+    N > 0,
+    N1 is N - 1,
+    choose_n(N1, Xs, Ys).
+choose_n(N, [_|Xs], Ys) :-
+    N > 0,
+    choose_n(N, Xs, Ys).
+
 
 clpr_post(Eq) :- { Eq }.
 
@@ -648,9 +673,10 @@ strip_leading_dots(Cs, Cs).
 
 
 % DCG Rules
-sentence(State, Goal) -->
+sentence(State, Goals) -->
     items(Items),
-    { extract_state_goal(Items, State, Goal) }.
+    { extract_state_goals(Items, State, Goals) }.
+
 
 items([Item|Rest]) -->
     phrase_item(Item),
@@ -700,8 +726,21 @@ phrase_item(var(Name, N, Dim, Scale)) -->
 phrase_item(goal(GoalName)) -->
     goal_word,
     goal_target(GoalName).
+phrase_item(goal(GoalName)) -->
+    [and],
+    goal_target(GoalName),
+    dcg_peek(Rest),
+    { \+ has_number_within_3(Rest) }.
 
 phrase_item(ignored) --> [Word], { filler_word(Word) }.
+
+dcg_peek(List, List, List).
+
+has_number_within_3([T|_]) :- number(T), !.
+has_number_within_3([_,T|_]) :- number(T), !.
+has_number_within_3([_,_,T|_]) :- number(T), !.
+
+
 
 optional_preposition --> [at].
 optional_preposition --> [for].
@@ -831,16 +870,18 @@ determine_name_from_unit(ohms, res).
 number_or_float(N) --> [N], { number(N) }.
 unit_name(UName, Dim, Scale) --> [UName], { unit(UName, Dim, Scale) }.
 
-extract_state_goal(Items, State, Goal) :-
-    extract_state_goal(Items, [], State, _, Goal).
+extract_state_goals(Items, State, Goals) :-
+    extract_state_goals(Items, [], State, [], Goals).
 
-extract_state_goal([], State, State, Goal, Goal).
-extract_state_goal([var(Name, Val, Dim, Scale)|Rest], StateAcc, State, GoalAcc, Goal) :-
-    extract_state_goal(Rest, [var(Name, Val, Dim, Scale)|StateAcc], State, GoalAcc, Goal).
-extract_state_goal([goal(G)|Rest], StateAcc, State, _, Goal) :-
-    extract_state_goal(Rest, StateAcc, State, G, Goal).
-extract_state_goal([ignored|Rest], StateAcc, State, GoalAcc, Goal) :-
-    extract_state_goal(Rest, StateAcc, State, GoalAcc, Goal).
+extract_state_goals([], State, State, Goals, Goals).
+extract_state_goals([var(Name, Val, Dim, Scale)|Rest], StateAcc, State, GoalsAcc, Goals) :-
+    extract_state_goals(Rest, [var(Name, Val, Dim, Scale)|StateAcc], State, GoalsAcc, Goals).
+extract_state_goals([goal(G)|Rest], StateAcc, State, GoalsAcc, Goals) :-
+    (member(G, GoalsAcc) -> NewGoalsAcc = GoalsAcc ; append(GoalsAcc, [G], NewGoalsAcc)),
+    extract_state_goals(Rest, StateAcc, State, NewGoalsAcc, Goals).
+extract_state_goals([ignored|Rest], StateAcc, State, GoalsAcc, Goals) :-
+    extract_state_goals(Rest, StateAcc, State, GoalsAcc, Goals).
+
 
 % Fillers
 filler_word(a).
@@ -966,11 +1007,6 @@ initialize_state(ParsedVars, FullState) :-
         var(delta_temp, _, [0,0,0,0,1,0,0], 1.0),
         var(theta, _, [0,0,0,0,0,0,0], 1.0),
         var(f_parallel, _, [1,1,-2,0,0,0,0], 1.0)
-
-
-
-
-
     ],
     maplist(merge_var(ParsedVars), AllVars, FullState).
 
@@ -984,10 +1020,11 @@ merge_var(ParsedVars, var(Name, Value, Dim, Scale), var(Name, MergedValue, Dim, 
 % Main parser/solver entry point
 solve_nl(Sentence, Result) :-
     tokenize(Sentence, Tokens),
-    (phrase(sentence(ParsedVars, Goal), Tokens) ->
+    (phrase(sentence(ParsedVars, Goals), Tokens) ->
         initialize_state(ParsedVars, State),
-        (solve_state(State, Goal, Path, Value) ->
-            format_derivation(Path, Goal, Value, Result)
+        (solve_goals(State, Goals, Path, SolvedState) ->
+            format_derivations(Path, Goals, SolvedState, Results),
+            (Results = [SingleResult] -> Result = SingleResult ; Result = Results)
         ;
             writeln("Error: Could not solve the problem with the given facts."),
             fail
@@ -998,13 +1035,26 @@ solve_nl(Sentence, Result) :-
     ).
 
 % Format step-by-step logical derivation walkthrough
-format_derivation(Path, Goal, Value, Result) :-
+format_derivations(Path, Goals, SolvedState, Results) :-
     reverse(Path, ForwardPath),
     writeln("Derivation Steps:"),
     print_steps(ForwardPath),
+    (Goals = [Goal] ->
+        get_var(Goal, SolvedState, var(Goal, Value, _, _)),
+        get_goal_unit(Goal, UnitSymbol),
+        format("Solved Result: ~w = ~6f ~w~n", [Goal, Value, UnitSymbol]),
+        Results = [Value]
+    ;
+        writeln("Solved Results:"),
+        print_multiple_goals(Goals, SolvedState, Results)
+    ).
+
+print_multiple_goals([], _, []).
+print_multiple_goals([Goal|Rest], SolvedState, [Value|RestVals]) :-
+    get_var(Goal, SolvedState, var(Goal, Value, _, _)),
     get_goal_unit(Goal, UnitSymbol),
-    format("Solved Result: ~w = ~6f ~w~n", [Goal, Value, UnitSymbol]),
-    Result = Value.
+    format("  - ~w = ~6f ~w~n", [Goal, Value, UnitSymbol]),
+    print_multiple_goals(Rest, SolvedState, RestVals).
 
 print_steps([]).
 print_steps([step(EqName, TargetName, Expr, SubbedExpr, TargetVal)|Rest]) :-
@@ -1012,10 +1062,15 @@ print_steps([step(EqName, TargetName, Expr, SubbedExpr, TargetVal)|Rest]) :-
     format("    Substitution: ~w = ~w~n", [TargetName, SubbedExpr]),
     format("    Computed:     ~w = ~6f~n", [TargetName, TargetVal]),
     print_steps(Rest).
-print_steps([step_simultaneous(EqName1, EqName2, V1, V2, Val1, Val2)|Rest]) :-
-    format("  - simultaneous system: ~w and ~w~n", [EqName1, EqName2]),
-    format("    Solved:       ~w = ~6f, ~w = ~6f~n", [V1, Val1, V2, Val2]),
+print_steps([step_system(EqNames, Unknowns, Vals)|Rest]) :-
+    format("  - simultaneous system: ~w~n", [EqNames]),
+    print_system_results(Unknowns, Vals),
     print_steps(Rest).
+
+print_system_results([], []).
+print_system_results([U|Us], [V|Vs]) :-
+    format("    Solved:       ~w = ~6f~n", [U, V]),
+    print_system_results(Us, Vs).
 
 
 get_goal_unit(f, newton).
@@ -1054,11 +1109,6 @@ get_goal_unit(c_heat, j_per_kg_k).
 get_goal_unit(delta_temp, kelvin).
 get_goal_unit(theta, deg).
 get_goal_unit(f_parallel, newton).
-
-
-
-
-
 
 %% ==========================================
 %% TEST SUITE
@@ -1139,13 +1189,11 @@ run_tests :-
     writeln("Input: 'object of 10 kg mass on inclined plane with angle of 30 deg find parallel force'"),
     solve_nl("object of 10 kg mass on inclined plane with angle of 30 deg find parallel force", _),
 
+    writeln("\n--- TEST 18: Multi-Variable Solver (Input & Output) ---"),
+    writeln("Input: 'voltage of 12 volt and current of 2 amp find resistance and power'"),
+    solve_nl("voltage of 12 volt and current of 2 amp find resistance and power", _),
+
     writeln("\n=================================================="),
     writeln("TEST SUITE COMPLETE"),
     writeln("==================================================").
-
-
-
-
-
-
 
