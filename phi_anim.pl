@@ -22,7 +22,7 @@ main :-
         atom_string(Mode, ModeStr),
         (Mode == test ->
             true
-        ; member(Mode, [bouncing_ball, projectile, orbit, spinning_top, pendulum]) ->
+        ; member(Mode, [bouncing_ball, projectile, orbit, spinning_top, pendulum, circuit]) ->
             run_animation(Mode)
         ;
             menu
@@ -31,7 +31,7 @@ main :-
         menu
     ).
 
-:- initialization(main).
+:- initialization(main, main).
 
 %% ==========================================
 %% MAIN MENU IMPLEMENTATION
@@ -341,45 +341,43 @@ physics_step(projectile, projectile_sim(X, Y, Ux, Uy, T_start, Trail, State, Tar
         exclude(==(""), DerivRawLines, DerivLines)
         
     ; State == exploding ->
-        NextExplFrame is ExplFrame + 1,
+        CurrExplFrame is ExplFrame + 1,
         NextT_start = T_start,
-        (NextExplFrame > 6 ->
+        (CurrExplFrame > 6 ->
             % Reset launcher
             NextState = flying,
             NextX = 2.0,
             NextY = 0.0,
             NextT_start = NextT,
             NextTrail = [],
-            NextExplFrameVal = 0
+            NextExplFrame = 0
         ;
             NextState = exploding,
             NextX = X,
             NextY = Y,
             NextTrail = Trail,
-            NextExplFrameVal = NextExplFrame
+            NextExplFrame = CurrExplFrame
         ),
-        NextExplFrame = NextExplFrameVal,
         DerivLines = ["Projectile Exploding!", "Target Hit! Velocity = 0 mps", "Energy dissipated in explosion."]
         
     ; State == landed ->
-        NextExplFrame is ExplFrame + 1,
+        CurrExplFrame is ExplFrame + 1,
         NextT_start = T_start,
-        (NextExplFrame > 6 ->
+        (CurrExplFrame > 6 ->
             % Reset launcher
             NextState = flying,
             NextX = 2.0,
             NextY = 0.0,
             NextT_start = NextT,
             NextTrail = [],
-            NextExplFrameVal = 0
+            NextExplFrame = 0
         ;
             NextState = landed,
             NextX = X,
             NextY = Y,
             NextTrail = Trail,
-            NextExplFrameVal = NextExplFrame
+            NextExplFrame = CurrExplFrame
         ),
-        NextExplFrame = NextExplFrameVal,
         DerivLines = ["Projectile Landed!", "Impacted the ground.", "Waiting for next launch..."]
     ).
 
@@ -1069,8 +1067,8 @@ get_right_panel(bouncing_ball, bouncing_ball(X, Y, Vx, Vy, _, _, _, _), T, Deriv
     KE is 0.5 * Mass * Speed * Speed,
     TE is PE + KE,
     
-    L1 = "\e[1;36m  ─── PHYSICS TELEMETRY ───\e[0m",
-    L2 = "  -------------------------",
+    L1 = "\e[1;36m  PHYSICS TELEMETRY\e[0m",
+    L2 = "  ─────────────────────────",
     format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
     format(string(L4), "  Position (X):   \e[32m~2f m\e[0m", [X]),
     format(string(L5), "  Height (Y):     \e[32m~2f m\e[0m", [Y]),
@@ -1080,9 +1078,9 @@ get_right_panel(bouncing_ball, bouncing_ball(X, Y, Vx, Vy, _, _, _, _), T, Deriv
     format(string(L9), "  Kinetic Energy: \e[32m~1f J\e[0m", [KE]),
     format(string(L10), "  Pot. Energy:    \e[32m~1f J\e[0m", [PE]),
     format(string(L11), "  Total Energy:   \e[32m~1f J\e[0m", [TE]),
-    L12 = "  -------------------------",
-    L13 = "\e[1;36m  ─── SOLVER DERIVATION ───\e[0m",
-    L14 = "  -------------------------",
+    L12 = "  ─────────────────────────",
+    L13 = "\e[1;36m  SOLVER DERIVATION\e[0m",
+    L14 = "  ─────────────────────────",
     
     maplist(format_line_29, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11, L12, L13, L14], TelemetryLines),
     
@@ -1093,8 +1091,8 @@ get_right_panel(bouncing_ball, bouncing_ball(X, Y, Vx, Vy, _, _, _, _), T, Deriv
     pad_to_length(17, "                           ", FullList, PanelLines).
 
 get_right_panel(projectile, projectile_sim(X, Y, Ux, Uy, _, _, State, TargetX, TargetY, _), T, DerivLines, PanelLines) :-
-    L1 = "\e[1;36m  ─── PHYSICS TELEMETRY ───\e[0m",
-    L2 = "  -------------------------",
+    L1 = "\e[1;36m  PHYSICS TELEMETRY\e[0m",
+    L2 = "  ─────────────────────────",
     format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
     format(string(L4), "  Position (X):   \e[32m~2f m\e[0m", [X]),
     format(string(L5), "  Height (Y):     \e[32m~2f m\e[0m", [Y]),
@@ -1102,9 +1100,9 @@ get_right_panel(projectile, projectile_sim(X, Y, Ux, Uy, _, _, State, TargetX, T
     format(string(L7), "  Init Vel (Uy):  \e[32m~2f m/s\e[0m", [Uy]),
     format(string(L8), "  Target (X, Y):  \e[32m(~1f, ~1f)\e[0m", [TargetX, TargetY]),
     format(string(L9), "  State:          \e[33m~w\e[0m", [State]),
-    L10 = "  -------------------------",
-    L11 = "\e[1;36m  ─── SOLVER DERIVATION ───\e[0m",
-    L12 = "  -------------------------",
+    L10 = "  ─────────────────────────",
+    L11 = "\e[1;36m  SOLVER DERIVATION\e[0m",
+    L12 = "  ─────────────────────────",
     
     maplist(format_line_29, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11, L12], TelemetryLines),
     
@@ -1122,8 +1120,8 @@ get_right_panel(orbit, orbit_sim(Px1, Py1, Vx1, Vy1, Px2, Py2, Vx2, Vy2, _, _, M
     Speed2 is sqrt(Vx2 * Vx2 + Vy2 * Vy2),
     F is 6.6743e-11 * M1 * M2 / (R * R),
     
-    L1 = "\e[1;36m  ─── PHYSICS TELEMETRY ───\e[0m",
-    L2 = "  -------------------------",
+    L1 = "\e[1;36m  PHYSICS TELEMETRY\e[0m",
+    L2 = "  ─────────────────────────",
     format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
     format(string(L4), "  Body 1:         \e[32m(~1f,~1f)\e[0m", [Px1, Py1]),
     format(string(L5), "  Body 2:         \e[32m(~1f,~1f)\e[0m", [Px2, Py2]),
@@ -1133,9 +1131,9 @@ get_right_panel(orbit, orbit_sim(Px1, Py1, Vx1, Vy1, Px2, Py2, Vx2, Vy2, _, _, M
     format(string(L9), "  Grav. Force F:  \e[32m~2e N\e[0m", [F]),
     format(string(L10), "  Mass 1:         \e[32m~1e kg\e[0m", [M1]),
     format(string(L11), "  Mass 2:         \e[32m~1e kg\e[0m", [M2]),
-    L12 = "  -------------------------",
-    L13 = "\e[1;36m  ─── SOLVER DERIVATION ───\e[0m",
-    L14 = "  -------------------------",
+    L12 = "  ─────────────────────────",
+    L13 = "\e[1;36m  SOLVER DERIVATION\e[0m",
+    L14 = "  ─────────────────────────",
     
     maplist(format_line_29, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11, L12, L13, L14], TelemetryLines),
     
@@ -1146,16 +1144,16 @@ get_right_panel(orbit, orbit_sim(Px1, Py1, Vx1, Vy1, Px2, Py2, Vx2, Vy2, _, _, M
     pad_to_length(17, "                           ", FullList, PanelLines).
 
 get_right_panel(spinning_top, spinning_top_sim(_, _, SpinRate, PrecAngle, TiltAngle, State, _), T, DerivLines, PanelLines) :-
-    L1 = "\e[1;36m  ─── PHYSICS TELEMETRY ───\e[0m",
-    L2 = "  -------------------------",
+    L1 = "\e[1;36m  PHYSICS TELEMETRY\e[0m",
+    L2 = "  ─────────────────────────",
     format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
     format(string(L4), "  Spin Rate (ws): \e[32m~2f r/s\e[0m", [SpinRate]),
     format(string(L5), "  Prec Angle (p): \e[32m~2f rad\e[0m", [PrecAngle]),
     format(string(L6), "  Tilt Angle (th):\e[32m~2f rad\e[0m", [TiltAngle]),
     format(string(L7), "  State:          \e[33m~w\e[0m", [State]),
-    L8 = "  -------------------------",
-    L9 = "\e[1;36m  ─── SOLVER DERIVATION ───\e[0m",
-    L10 = "  -------------------------",
+    L8 = "  ─────────────────────────",
+    L9 = "\e[1;36m  SOLVER DERIVATION\e[0m",
+    L10 = "  ─────────────────────────",
     
     maplist(format_line_29, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10], TelemetryLines),
     
@@ -1172,8 +1170,8 @@ get_right_panel(pendulum, pendulum_sim(_, _, Length, Theta, Omega, State), T, De
     KE is 0.5 * 1.0 * Vel * Vel,
     TE is PE + KE,
     
-    L1 = "\e[1;36m  ─── PHYSICS TELEMETRY ───\e[0m",
-    L2 = "  -------------------------",
+    L1 = "\e[1;36m  PHYSICS TELEMETRY\e[0m",
+    L2 = "  ─────────────────────────",
     format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
     format(string(L4), "  Angle (theta):  \e[32m~2f rad\e[0m", [Theta]),
     format(string(L5), "  Ang Vel (w):    \e[32m~2f r/s\e[0m", [Omega]),
@@ -1182,9 +1180,9 @@ get_right_panel(pendulum, pendulum_sim(_, _, Length, Theta, Omega, State), T, De
     format(string(L8), "  KE (Energy):    \e[32m~1f J\e[0m", [KE]),
     format(string(L9), "  TE (Energy):    \e[32m~1f J\e[0m", [TE]),
     format(string(L10), "  State:          \e[33m~w\e[0m", [State]),
-    L11 = "  -------------------------",
-    L12 = "\e[1;36m  ─── SOLVER DERIVATION ───\e[0m",
-    L13 = "  -------------------------",
+    L11 = "  ─────────────────────────",
+    L12 = "\e[1;36m  SOLVER DERIVATION\e[0m",
+    L13 = "  ─────────────────────────",
     
     maplist(format_line_29, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11, L12, L13], TelemetryLines),
     
@@ -1195,16 +1193,16 @@ get_right_panel(pendulum, pendulum_sim(_, _, Length, Theta, Omega, State), T, De
     pad_to_length(17, "                           ", FullList, PanelLines).
 
 get_right_panel(circuit, circuit_sim(V, I, R, P, _), T, DerivLines, PanelLines) :-
-    L1 = "\e[1;36m  ─── PHYSICS TELEMETRY ───\e[0m",
-    L2 = "  -------------------------",
+    L1 = "\e[1;36m  PHYSICS TELEMETRY\e[0m",
+    L2 = "  ─────────────────────────",
     format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
     format(string(L4), "  Voltage (V):    \e[32m~2f V\e[0m", [V]),
     format(string(L5), "  Resistance (R): \e[32m~2f ohm\e[0m", [R]),
     format(string(L6), "  Current (I):    \e[32m~2f A\e[0m", [I]),
     format(string(L7), "  Power (P):      \e[32m~2f W\e[0m", [P]),
-    L8 = "  -------------------------",
-    L9 = "\e[1;36m  ─── SOLVER DERIVATION ───\e[0m",
-    L10 = "  -------------------------",
+    L8 = "  ─────────────────────────",
+    L9 = "\e[1;36m  SOLVER DERIVATION\e[0m",
+    L10 = "  ─────────────────────────",
     
     maplist(format_line_29, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10], TelemetryLines),
     
