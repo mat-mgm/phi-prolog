@@ -43,6 +43,10 @@ var_dim(r,       [1,0,0,0,0,0,0]).
 var_dim(density,  [-3,1,0,0,0,0,0]).
 var_dim(vol,      [3,0,0,0,0,0,0]).
 var_dim(pressure, [-1,1,-2,0,0,0,0]).
+var_dim(freq,     [0,0,-1,0,0,0,0]).
+var_dim(lambda,   [1,0,0,0,0,0,0]).
+var_dim(t_period, [0,0,1,0,0,0,0]).
+
 
 
 % Dimensions arithmetic
@@ -121,6 +125,14 @@ unit(pa,        [-1,1,-2,0,0,0,0], 1.0).
 unit(atm,       [-1,1,-2,0,0,0,0], 101325.0).
 unit(bar,       [-1,1,-2,0,0,0,0], 100000.0).
 
+% Frequency units
+unit(hertz,     [0,0,-1,0,0,0,0], 1.0).
+unit(hz,        [0,0,-1,0,0,0,0], 1.0).
+
+% Wavelength units
+unit(nm,        [1,0,0,0,0,0,0], 1e-9).
+
+
 
 % Word plural aliases
 unit(meters,    [1,0,0,0,0,0,0], 1.0).
@@ -152,6 +164,9 @@ base_eq(gravity,          f = g_const * m1 * m2 / (r * r)).
 base_eq(density,          density = m / vol).
 base_eq(hydrostatic_pres, pressure = density * g * h).
 base_eq(centripetal_acc,  a = v * v / r).
+base_eq(wave_speed,       v = freq * lambda).
+base_eq(wave_period,      freq = 1 / t_period).
+
 
 
 
@@ -486,6 +501,11 @@ phrase_item(var(vol, N, Dim, Scale)) --> [volume, of], number_or_float(N), unit_
 phrase_item(var(vol, N, Dim, Scale)) --> [volume], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(r, N, Dim, Scale)) --> [separation, of], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(r, N, Dim, Scale)) --> [radius, of], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(lambda, N, Dim, Scale)) --> [wavelength, of], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(lambda, N, Dim, Scale)) --> [wavelength], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(t_period, N, Dim, Scale)) --> [period, of], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(t_period, N, Dim, Scale)) --> [period], number_or_float(N), unit_name(_, Dim, Scale).
+
 
 
 
@@ -518,6 +538,10 @@ goal_target(r)     --> [radius].
 goal_target(density)   --> [density].
 goal_target(vol)       --> [volume].
 goal_target(pressure)  --> [pressure].
+goal_target(freq)      --> [frequency].
+goal_target(lambda)    --> [wavelength].
+goal_target(t_period)  --> [period].
+
 goal_target(m)     --> [mass].
 goal_target(a)     --> [acceleration].
 goal_target(t)     --> [time].
@@ -568,6 +592,10 @@ determine_name_from_unit(pascal, pressure).
 determine_name_from_unit(pa, pressure).
 determine_name_from_unit(atm, pressure).
 determine_name_from_unit(bar, pressure).
+determine_name_from_unit(hertz, freq).
+determine_name_from_unit(hz, freq).
+determine_name_from_unit(nm, lambda).
+
 
 determine_name_from_unit(meters, s).
 determine_name_from_unit(kilograms, m).
@@ -644,6 +672,10 @@ filler_word(height).
 filler_word(density).
 filler_word(volume).
 filler_word(pressure).
+filler_word(frequency).
+filler_word(wavelength).
+filler_word(period).
+
 
 
 %% ==========================================
@@ -673,7 +705,11 @@ initialize_state(ParsedVars, FullState) :-
         var(r, _, [1,0,0,0,0,0,0], 1.0),
         var(density, _, [-3,1,0,0,0,0,0], 1.0),
         var(vol, _, [3,0,0,0,0,0,0], 1.0),
-        var(pressure, _, [-1,1,-2,0,0,0,0], 1.0)
+        var(pressure, _, [-1,1,-2,0,0,0,0], 1.0),
+        var(freq, _, [0,0,-1,0,0,0,0], 1.0),
+        var(lambda, _, [1,0,0,0,0,0,0], 1.0),
+        var(t_period, _, [0,0,1,0,0,0,0], 1.0)
+
 
     ],
     maplist(merge_var(ParsedVars), AllVars, FullState).
@@ -736,6 +772,10 @@ get_goal_unit(r, m).
 get_goal_unit(density, kg_per_m3).
 get_goal_unit(vol, m3).
 get_goal_unit(pressure, pascal).
+get_goal_unit(freq, hertz).
+get_goal_unit(lambda, m).
+get_goal_unit(t_period, s).
+
 
 
 %% ==========================================
@@ -785,9 +825,18 @@ run_tests :-
     writeln("Input: 'mass of 2 kg moving at 10 mps with radius of 5 m find force'"),
     solve_nl("mass of 2 kg moving at 10 mps with radius of 5 m find force", _),
 
+    writeln("\n--- TEST 10: Wave Speed ---"),
+    writeln("Input: 'frequency of 500 hz and wavelength of 0.6 m find velocity'"),
+    solve_nl("frequency of 500 hz and wavelength of 0.6 m find velocity", _),
+
+    writeln("\n--- TEST 11: Wave Period ---"),
+    writeln("Input: 'period of 0.02 seconds find frequency'"),
+    solve_nl("period of 0.02 seconds find frequency", _),
+
     writeln("\n=================================================="),
     writeln("TEST SUITE COMPLETE"),
     writeln("==================================================").
+
 
 
 
