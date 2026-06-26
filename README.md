@@ -45,7 +45,7 @@ Launch the interactive shell by running the `phi` command (if using Nix) or load
 phi
 
 # Using standard SWI-Prolog
-swipl -s physics_solver.pl
+swipl -s phi.pl
 ```
 
 Your prompt will change to the project's signature `φ` shell:
@@ -53,6 +53,31 @@ Your prompt will change to the project's signature `φ` shell:
 Welcome to phi: The Unified Prolog Physics Solver Env!
 1 φ ?- 
 ```
+
+### Running the Interactive Animation Engine
+
+To run the physics-driven ASCII animation dashboard:
+
+```bash
+# Using Nix or the bash wrapper
+./phi-anim
+
+# Using standard SWI-Prolog
+swipl -s phi_anim.pl
+```
+
+This launches a colorized terminal dashboard with 5 interactive simulations:
+1. **Bouncing Ball**: A 2.0 kg ball falling under gravity and bouncing elastically off barriers.
+2. **Projectile Launcher**: A cannon firing projectiles to hit target positions, triggering explosions.
+3. **Binary Orbital Sim**: Two massive bodies orbiting each other via gravitational attraction.
+4. **Spinning Top**: A 3D-projected spinning top undergoing gyroscopic precession and tilt decay.
+5. **Damped Pendulum**: A simple pendulum swinging under gravity torque with air resistance.
+
+**Controls:**
+*   `[Space]`: Pause / Play simulation
+*   `[Tab]`: Cycle between simulations
+*   `[R]`: Reset current simulation
+*   `[Q]`: Quit and return to menu / exit
 
 ### Example Natural Language Queries
 
@@ -98,7 +123,9 @@ phi -g "run_tests, halt."
 ```
 ├── flake.nix          # Nix flake defining SWI-Prolog and dev shell
 ├── flake.lock         # Nix lockfile
-├── phi                # Bash wrapper script for swipl
-├── physics_solver.pl  # Core Prolog implementation source
+├── phi                # Bash wrapper script for solver REPL
+├── phi-anim           # Bash wrapper script for animation dashboard
+├── phi.pl             # Core Prolog implementation source
+├── phi_anim.pl        # Interactive animation engine and UI
 └── README.md          # Documentation
 ```

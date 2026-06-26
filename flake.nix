@@ -11,7 +11,10 @@
       let
         pkgs = import nixpkgs { inherit system; };
         phi = pkgs.writeShellScriptBin "phi" ''
-          exec ${pkgs.swi-prolog}/bin/swipl -s ${./physics_solver.pl} "$@"
+          exec ${pkgs.swi-prolog}/bin/swipl -s ${./phi.pl} "$@"
+        '';
+        phiAnim = pkgs.writeShellScriptBin "phi-anim" ''
+          exec ${pkgs.swi-prolog}/bin/swipl -s ${./phi_anim.pl} "$@"
         '';
       in
       {
@@ -21,6 +24,7 @@
           buildInputs = [
             pkgs.swi-prolog
             phi
+            phiAnim
           ];
 
           shellHook = ''
@@ -32,6 +36,9 @@
             echo ""
             echo "To start the interactive REPL with custom prompt φ:"
             echo "  phi"
+            echo ""
+            echo "To run the interactive physics animation dashboard:"
+            echo "  phi-anim"
             echo "=========================================================="
           '';
         };
