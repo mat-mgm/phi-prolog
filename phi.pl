@@ -46,6 +46,10 @@ var_dim(pressure, [-1,1,-2,0,0,0,0]).
 var_dim(freq,     [0,0,-1,0,0,0,0]).
 var_dim(lambda,   [1,0,0,0,0,0,0]).
 var_dim(t_period, [0,0,1,0,0,0,0]).
+var_dim(n_amount, [0,0,0,0,0,1,0]).
+var_dim(r_gas,    [2,1,-2,0,-1,-1,0]).
+var_dim(temp,     [0,0,0,0,1,0,0]).
+
 
 
 
@@ -132,6 +136,19 @@ unit(hz,        [0,0,-1,0,0,0,0], 1.0).
 % Wavelength units
 unit(nm,        [1,0,0,0,0,0,0], 1e-9).
 
+% Temperature units
+unit(kelvin,    [0,0,0,0,1,0,0], 1.0).
+unit(k,         [0,0,0,0,1,0,0], 1.0).
+
+% Amount of substance units
+unit(mole,      [0,0,0,0,0,1,0], 1.0).
+unit(mol,       [0,0,0,0,0,1,0], 1.0).
+unit(moles,     [0,0,0,0,0,1,0], 1.0).
+
+% Gas constant units
+unit(j_per_mol_k, [2,1,-2,0,-1,-1,0], 1.0).
+
+
 
 
 % Word plural aliases
@@ -166,6 +183,8 @@ base_eq(hydrostatic_pres, pressure = density * g * h).
 base_eq(centripetal_acc,  a = v * v / r).
 base_eq(wave_speed,       v = freq * lambda).
 base_eq(wave_period,      freq = 1 / t_period).
+base_eq(ideal_gas,        pressure * vol = n_amount * r_gas * temp).
+
 
 
 
@@ -505,6 +524,9 @@ phrase_item(var(lambda, N, Dim, Scale)) --> [wavelength, of], number_or_float(N)
 phrase_item(var(lambda, N, Dim, Scale)) --> [wavelength], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(t_period, N, Dim, Scale)) --> [period, of], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(t_period, N, Dim, Scale)) --> [period], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(temp, N, Dim, Scale)) --> [temperature, of], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(temp, N, Dim, Scale)) --> [temperature], number_or_float(N), unit_name(_, Dim, Scale).
+
 
 
 
@@ -541,6 +563,10 @@ goal_target(pressure)  --> [pressure].
 goal_target(freq)      --> [frequency].
 goal_target(lambda)    --> [wavelength].
 goal_target(t_period)  --> [period].
+goal_target(n_amount)  --> [amount, of, substance].
+goal_target(n_amount)  --> [moles].
+goal_target(temp)      --> [temperature].
+
 
 goal_target(m)     --> [mass].
 goal_target(a)     --> [acceleration].
@@ -595,6 +621,12 @@ determine_name_from_unit(bar, pressure).
 determine_name_from_unit(hertz, freq).
 determine_name_from_unit(hz, freq).
 determine_name_from_unit(nm, lambda).
+determine_name_from_unit(kelvin, temp).
+determine_name_from_unit(k, temp).
+determine_name_from_unit(mole, n_amount).
+determine_name_from_unit(mol, n_amount).
+determine_name_from_unit(moles, n_amount).
+
 
 
 determine_name_from_unit(meters, s).
@@ -675,6 +707,10 @@ filler_word(pressure).
 filler_word(frequency).
 filler_word(wavelength).
 filler_word(period).
+filler_word(temperature).
+filler_word(mole).
+filler_word(moles).
+
 
 
 
@@ -708,7 +744,11 @@ initialize_state(ParsedVars, FullState) :-
         var(pressure, _, [-1,1,-2,0,0,0,0], 1.0),
         var(freq, _, [0,0,-1,0,0,0,0], 1.0),
         var(lambda, _, [1,0,0,0,0,0,0], 1.0),
-        var(t_period, _, [0,0,1,0,0,0,0], 1.0)
+        var(t_period, _, [0,0,1,0,0,0,0], 1.0),
+        var(n_amount, _, [0,0,0,0,0,1,0], 1.0),
+        var(r_gas, 8.314462618, [2,1,-2,0,-1,-1,0], 1.0),
+        var(temp, _, [0,0,0,0,1,0,0], 1.0)
+
 
 
     ],
@@ -775,6 +815,10 @@ get_goal_unit(pressure, pascal).
 get_goal_unit(freq, hertz).
 get_goal_unit(lambda, m).
 get_goal_unit(t_period, s).
+get_goal_unit(n_amount, mole).
+get_goal_unit(r_gas, j_per_mol_k).
+get_goal_unit(temp, kelvin).
+
 
 
 
@@ -833,9 +877,14 @@ run_tests :-
     writeln("Input: 'period of 0.02 seconds find frequency'"),
     solve_nl("period of 0.02 seconds find frequency", _),
 
+    writeln("\n--- TEST 12: Ideal Gas Law ---"),
+    writeln("Input: 'volume of 0.024 m3 and temperature of 300 kelvin and 1 mol find pressure'"),
+    solve_nl("volume of 0.024 m3 and temperature of 300 kelvin and 1 mol find pressure", _),
+
     writeln("\n=================================================="),
     writeln("TEST SUITE COMPLETE"),
     writeln("==================================================").
+
 
 
 
