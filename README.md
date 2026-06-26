@@ -116,6 +116,12 @@ Run the built-in validation suite directly:
 phi -g "run_tests, halt."
 ```
 
+The animation engine tests can be run standalone:
+
+```bash
+swipl -s test_anim.pl
+```
+
 ---
 
 ## Repository Structure
@@ -127,5 +133,6 @@ phi -g "run_tests, halt."
 ├── phi-anim           # Bash wrapper script for animation dashboard
 ├── phi.pl             # Core Prolog implementation source
 ├── phi_anim.pl        # Interactive animation engine and UI
+├── test_anim.pl       # Integration tests for the animation engine
 └── README.md          # Documentation
 ```
