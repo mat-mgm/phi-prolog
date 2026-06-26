@@ -36,39 +36,58 @@ main :-
 %% ==========================================
 %% MAIN MENU IMPLEMENTATION
 %% ==========================================
+write_menu_line(String) :-
+    format_line(String, 94, Formatted),
+    format("\e[2;36m│\e[0m~w\e[2;36m│\e[0m\r\n", [Formatted]).
+
 menu :-
     % Complete screen clear and cursor reset
     write("\e[H\e[2J"),
     
-    % Print styled ASCII Logo in Cyan
-    write("\e[1;36m"),
-    writeln("      ██████╗ ██╗  ██╗██╗ "),
-    writeln("      ██╔══██╗██║  ██║██║ "),
-    writeln("      ██████╔╝███████║██║ "),
-    writeln("      ██╔═══╝ ██╔══██║██║ "),
-    writeln("      ██║     ██║  ██║██║ "),
-    writeln("      ╚═╝     ╚═╝  ╚═╝╚═╝ "),
-    write("\e[0m"),
+    % Top border
+    write("\e[2;36m┌──────────────────────────────────────────────────────────────────────────────────────────────┐\e[0m\r\n"),
+    
+    % Header
+    write_menu_line("  \e[1;36mphi Unified Physics Solver & Animator - Interactive Main Menu\e[0m"),
+    
+    % Separator
+    write("\e[2;36m├──────────────────────────────────────────────────────────────────────────────────────────────┤\e[0m\r\n"),
+    
+    % Logo
+    write_menu_line(""),
+    write_menu_line("            \e[1;36m██████╗ ██╗  ██╗██╗\e[0m"),
+    write_menu_line("            \e[1;36m██╔══██╗██║  ██║██║\e[0m"),
+    write_menu_line("            \e[1;36m██████╔╝███████║██║\e[0m"),
+    write_menu_line("            \e[1;36m██╔═══╝ ██╔══██║██║\e[0m"),
+    write_menu_line("            \e[1;36m██║     ██║  ██║██║\e[0m"),
+    write_menu_line("            \e[1;36m╚═╝     ╚═╝  ╚═╝╚═╝\e[0m"),
+    write_menu_line(""),
     
     % Subtitle
-    write("\e[1;33m"),
-    writeln("  φ (phi) - Unified Physics Solver & Animator"),
-    write("\e[0m"),
-    writeln("  ==========================================="),
-    nl,
-    writeln("  Select an interactive physics-driven ASCII animation:"),
-    nl,
-    writeln("    \e[1;32m[1]\e[0m 🏀 Bouncing Ball (Gravity & elastic boundaries)"),
-    writeln("    \e[1;32m[2]\e[0m 🚀 Projectile Launcher (Parabolic trajectory & collision)"),
-    writeln("    \e[1;32m[3]\e[0m 🪐 Binary Orbital Sim (Two-body gravity solver)"),
-    writeln("    \e[1;32m[4]\e[0m 🌀 Spinning Top (Gyroscopic precession & tilt)"),
-    writeln("    \e[1;32m[5]\e[0m ⛓️ Damped Pendulum (Gravity torque & damping)"),
-    writeln("    \e[1;32m[6]\e[0m ⚡ AC Circuit Solver (Multi-variable electrical loop)"),
-    writeln("    \e[1;32m[7]\e[0m 💨 Ideal Gas Piston (Multi-variable thermodynamic chamber)"),
-    nl,
-    writeln("    \e[1;31m[Q]\e[0m Quit Simulator"),
-    nl,
-    write("  Press a key to select... "),
+    write_menu_line("  \e[1;33mphi - A multi-domain non-linear constraint physics simulation engine\e[0m"),
+    write_menu_line(""),
+    
+    % Separator
+    write("\e[2;36m├──────────────────────────────────────────────────────────────────────────────────────────────┤\e[0m\r\n"),
+    write_menu_line(""),
+    write_menu_line("  Select an interactive physics-driven ASCII animation:"),
+    write_menu_line(""),
+    write_menu_line("    \e[1;32m[1]\e[0m 🏀 Bouncing Ball (Gravity & elastic boundaries)"),
+    write_menu_line("    \e[1;32m[2]\e[0m 🚀 Projectile Launcher (Parabolic trajectory & collision)"),
+    write_menu_line("    \e[1;32m[3]\e[0m 🪐 Binary Orbital Sim (Two-body gravity solver)"),
+    write_menu_line("    \e[1;32m[4]\e[0m 🌀 Spinning Top (Gyroscopic precession & tilt)"),
+    write_menu_line("    \e[1;32m[5]\e[0m ⛓️ Damped Pendulum (Gravity torque & damping)"),
+    write_menu_line("    \e[1;32m[6]\e[0m ⚡ AC Circuit Solver (Multi-variable electrical loop)"),
+    write_menu_line("    \e[1;32m[7]\e[0m 💨 Ideal Gas Piston (Multi-variable thermodynamic chamber)"),
+    write_menu_line(""),
+    write_menu_line("    \e[1;31m[Q]\e[0m Quit Simulator"),
+    write_menu_line(""),
+    
+    % Separator
+    write("\e[2;36m├──────────────────────────────────────────────────────────────────────────────────────────────┤\e[0m\r\n"),
+    write_menu_line("  Press [1-7] to start animation, or [Q] to quit."),
+    write("\e[2;36m└──────────────────────────────────────────────────────────────────────────────────────────────┘\e[0m\r\n"),
+    write("  Selection: "),
     flush_output,
     
     get_single_char(Char),
@@ -87,9 +106,7 @@ menu :-
         run_animation(circuit)
     ; Key == '7' ->
         run_animation(piston)
-    ; Key == 'q' ->
-        write("\e[H\e[2J"), halt
-    ; Key == 'Q' ->
+    ; (Key == 'q' ; Key == 'Q') ->
         write("\e[H\e[2J"), halt
     ;
         menu
@@ -1101,7 +1118,7 @@ print_middle_rows([ViewportRow|ViewportRest], [PanelRow|PanelRest]) :-
     (sub_string(PanelRow, _, _, _, "──") ->
         write("\e[2;36m│\e[0m"),
         print_viewport_row_colorized(ViewportRow),
-        write("\e[2;36m├─────────────────────────────┤\e[0m"),
+        write("\e[2;36m├───────────────────────────────────┤\e[0m"),
         write("\r\n")
     ;
         write("\e[2;36m│\e[0m"),
@@ -1169,8 +1186,8 @@ copy_escape([109|Rest], [109], Rest) :- !.
 copy_escape([Code|Rest], [Code|EscRest], OutRest) :-
     copy_escape(Rest, EscRest, OutRest).
 
-format_line_29(String, Formatted) :-
-    format_line(String, 29, Formatted).
+format_line_35(String, Formatted) :-
+    format_line(String, 35, Formatted).
 
 take_n(0, _, []) :- !.
 take_n(_, [], []) :- !.
@@ -1193,7 +1210,7 @@ get_right_panel(bouncing_ball, bouncing_ball(X, Y, Vx, Vy, _, _, _, _), T, Deriv
     TE is PE + KE,
     
     L1 = "\e[1;36m  PHYSICS TELEMETRY\e[0m",
-    L2 = "─────────────────────────────",
+    L2 = "───────────────────────────────────",
     format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
     format(string(L4), "  Position (X):   \e[32m~2f m\e[0m", [X]),
     format(string(L5), "  Height (Y):     \e[32m~2f m\e[0m", [Y]),
@@ -1203,21 +1220,21 @@ get_right_panel(bouncing_ball, bouncing_ball(X, Y, Vx, Vy, _, _, _, _), T, Deriv
     format(string(L9), "  Kinetic Energy: \e[32m~1f J\e[0m", [KE]),
     format(string(L10), "  Pot. Energy:    \e[32m~1f J\e[0m", [PE]),
     format(string(L11), "  Total Energy:   \e[32m~1f J\e[0m", [TE]),
-    L12 = "─────────────────────────────",
+    L12 = "───────────────────────────────────",
     L13 = "\e[1;36m  SOLVER DERIVATION\e[0m",
-    L14 = "─────────────────────────────",
+    L14 = "───────────────────────────────────",
     
-    maplist(format_line_29, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11, L12, L13, L14], TelemetryLines),
+    maplist(format_line_35, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11, L12, L13, L14], TelemetryLines),
     
     take_n(3, DerivLines, DerivTrunc),
-    maplist(format_line_29, DerivTrunc, DerivPadded),
+    maplist(format_line_35, DerivTrunc, DerivPadded),
     
     append(TelemetryLines, DerivPadded, FullList),
-    pad_to_length(20, "                             ", FullList, PanelLines).
+    pad_to_length(20, "                                   ", FullList, PanelLines).
 
 get_right_panel(projectile, projectile_sim(X, Y, Ux, Uy, _, _, State, TargetX, TargetY, _), T, DerivLines, PanelLines) :-
     L1 = "\e[1;36m  PHYSICS TELEMETRY\e[0m",
-    L2 = "─────────────────────────────",
+    L2 = "───────────────────────────────────",
     format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
     format(string(L4), "  Position (X):   \e[32m~2f m\e[0m", [X]),
     format(string(L5), "  Height (Y):     \e[32m~2f m\e[0m", [Y]),
@@ -1225,17 +1242,17 @@ get_right_panel(projectile, projectile_sim(X, Y, Ux, Uy, _, _, State, TargetX, T
     format(string(L7), "  Init Vel (Uy):  \e[32m~2f m/s\e[0m", [Uy]),
     format(string(L8), "  Target (X, Y):  \e[32m(~1f, ~1f)\e[0m", [TargetX, TargetY]),
     format(string(L9), "  State:          \e[33m~w\e[0m", [State]),
-    L10 = "─────────────────────────────",
+    L10 = "───────────────────────────────────",
     L11 = "\e[1;36m  SOLVER DERIVATION\e[0m",
-    L12 = "─────────────────────────────",
+    L12 = "───────────────────────────────────",
     
-    maplist(format_line_29, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11, L12], TelemetryLines),
+    maplist(format_line_35, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11, L12], TelemetryLines),
     
     take_n(5, DerivLines, DerivTrunc),
-    maplist(format_line_29, DerivTrunc, DerivPadded),
+    maplist(format_line_35, DerivTrunc, DerivPadded),
     
     append(TelemetryLines, DerivPadded, FullList),
-    pad_to_length(20, "                             ", FullList, PanelLines).
+    pad_to_length(20, "                                   ", FullList, PanelLines).
 
 get_right_panel(orbit, orbit_sim(Px1, Py1, Vx1, Vy1, Px2, Py2, Vx2, Vy2, _, _, M1, M2), T, DerivLines, PanelLines) :-
     Dx is Px2 - Px1,
@@ -1246,7 +1263,7 @@ get_right_panel(orbit, orbit_sim(Px1, Py1, Vx1, Vy1, Px2, Py2, Vx2, Vy2, _, _, M
     F is 6.6743e-11 * M1 * M2 / (R * R),
     
     L1 = "\e[1;36m  PHYSICS TELEMETRY\e[0m",
-    L2 = "─────────────────────────────",
+    L2 = "───────────────────────────────────",
     format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
     format(string(L4), "  Body 1:         \e[32m(~1f,~1f)\e[0m", [Px1, Py1]),
     format(string(L5), "  Body 2:         \e[32m(~1f,~1f)\e[0m", [Px2, Py2]),
@@ -1256,37 +1273,37 @@ get_right_panel(orbit, orbit_sim(Px1, Py1, Vx1, Vy1, Px2, Py2, Vx2, Vy2, _, _, M
     format(string(L9), "  Grav. Force F:  \e[32m~2e N\e[0m", [F]),
     format(string(L10), "  Mass 1:         \e[32m~1e kg\e[0m", [M1]),
     format(string(L11), "  Mass 2:         \e[32m~1e kg\e[0m", [M2]),
-    L12 = "─────────────────────────────",
+    L12 = "───────────────────────────────────",
     L13 = "\e[1;36m  SOLVER DERIVATION\e[0m",
-    L14 = "─────────────────────────────",
+    L14 = "───────────────────────────────────",
     
-    maplist(format_line_29, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11, L12, L13, L14], TelemetryLines),
+    maplist(format_line_35, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11, L12, L13, L14], TelemetryLines),
     
     take_n(3, DerivLines, DerivTrunc),
-    maplist(format_line_29, DerivTrunc, DerivPadded),
+    maplist(format_line_35, DerivTrunc, DerivPadded),
     
     append(TelemetryLines, DerivPadded, FullList),
-    pad_to_length(20, "                             ", FullList, PanelLines).
+    pad_to_length(20, "                                   ", FullList, PanelLines).
 
 get_right_panel(spinning_top, spinning_top_sim(_, _, SpinRate, PrecAngle, TiltAngle, State, _), T, DerivLines, PanelLines) :-
     L1 = "\e[1;36m  PHYSICS TELEMETRY\e[0m",
-    L2 = "─────────────────────────────",
+    L2 = "───────────────────────────────────",
     format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
     format(string(L4), "  Spin Rate (ws): \e[32m~2f r/s\e[0m", [SpinRate]),
     format(string(L5), "  Prec Angle (p): \e[32m~2f rad\e[0m", [PrecAngle]),
     format(string(L6), "  Tilt Angle (th):\e[32m~2f rad\e[0m", [TiltAngle]),
     format(string(L7), "  State:          \e[33m~w\e[0m", [State]),
-    L8 = "─────────────────────────────",
+    L8 = "───────────────────────────────────",
     L9 = "\e[1;36m  SOLVER DERIVATION\e[0m",
-    L10 = "─────────────────────────────",
+    L10 = "───────────────────────────────────",
     
-    maplist(format_line_29, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10], TelemetryLines),
+    maplist(format_line_35, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10], TelemetryLines),
     
     take_n(7, DerivLines, DerivTrunc),
-    maplist(format_line_29, DerivTrunc, DerivPadded),
+    maplist(format_line_35, DerivTrunc, DerivPadded),
     
     append(TelemetryLines, DerivPadded, FullList),
-    pad_to_length(20, "                             ", FullList, PanelLines).
+    pad_to_length(20, "                                   ", FullList, PanelLines).
 
 get_right_panel(pendulum, pendulum_sim(_, _, Length, Theta, Omega, State), T, DerivLines, PanelLines) :-
     Vel is Omega * Length,
@@ -1296,7 +1313,7 @@ get_right_panel(pendulum, pendulum_sim(_, _, Length, Theta, Omega, State), T, De
     TE is PE + KE,
     
     L1 = "\e[1;36m  PHYSICS TELEMETRY\e[0m",
-    L2 = "─────────────────────────────",
+    L2 = "───────────────────────────────────",
     format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
     format(string(L4), "  Angle (theta):  \e[32m~2f rad\e[0m", [Theta]),
     format(string(L5), "  Ang Vel (w):    \e[32m~2f r/s\e[0m", [Omega]),
@@ -1305,58 +1322,58 @@ get_right_panel(pendulum, pendulum_sim(_, _, Length, Theta, Omega, State), T, De
     format(string(L8), "  KE (Energy):    \e[32m~1f J\e[0m", [KE]),
     format(string(L9), "  TE (Energy):    \e[32m~1f J\e[0m", [TE]),
     format(string(L10), "  State:          \e[33m~w\e[0m", [State]),
-    L11 = "─────────────────────────────",
+    L11 = "───────────────────────────────────",
     L12 = "\e[1;36m  SOLVER DERIVATION\e[0m",
-    L13 = "─────────────────────────────",
+    L13 = "───────────────────────────────────",
     
-    maplist(format_line_29, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11, L12, L13], TelemetryLines),
+    maplist(format_line_35, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11, L12, L13], TelemetryLines),
     
     take_n(4, DerivLines, DerivTrunc),
-    maplist(format_line_29, DerivTrunc, DerivPadded),
+    maplist(format_line_35, DerivTrunc, DerivPadded),
     
     append(TelemetryLines, DerivPadded, FullList),
-    pad_to_length(20, "                             ", FullList, PanelLines).
+    pad_to_length(20, "                                   ", FullList, PanelLines).
 
 get_right_panel(circuit, circuit_sim(V, I, R, P, _), T, DerivLines, PanelLines) :-
     L1 = "\e[1;36m  PHYSICS TELEMETRY\e[0m",
-    L2 = "─────────────────────────────",
+    L2 = "───────────────────────────────────",
     format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
     format(string(L4), "  Voltage (V):    \e[32m~2f V\e[0m", [V]),
     format(string(L5), "  Resistance (R): \e[32m~2f ohm\e[0m", [R]),
     format(string(L6), "  Current (I):    \e[32m~2f A\e[0m", [I]),
     format(string(L7), "  Power (P):      \e[32m~2f W\e[0m", [P]),
-    L8 = "─────────────────────────────",
+    L8 = "───────────────────────────────────",
     L9 = "\e[1;36m  SOLVER DERIVATION\e[0m",
-    L10 = "─────────────────────────────",
+    L10 = "───────────────────────────────────",
     
-    maplist(format_line_29, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10], TelemetryLines),
+    maplist(format_line_35, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10], TelemetryLines),
     
     take_n(7, DerivLines, DerivTrunc),
-    maplist(format_line_29, DerivTrunc, DerivPadded),
+    maplist(format_line_35, DerivTrunc, DerivPadded),
     
     append(TelemetryLines, DerivPadded, FullList),
-    pad_to_length(20, "                             ", FullList, PanelLines).
+    pad_to_length(20, "                                   ", FullList, PanelLines).
 
 get_right_panel(piston, piston_sim(P, V, T_kelvin, _, _), T, DerivLines, PanelLines) :-
     L1 = "\e[1;36m  PHYSICS TELEMETRY\e[0m",
-    L2 = "─────────────────────────────",
+    L2 = "───────────────────────────────────",
     format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
     format(string(L4), "  Temperature (T):\e[32m~2f K\e[0m", [T_kelvin]),
     format(string(L5), "  Volume (V):     \e[32m~4f m3\e[0m", [V]),
     format(string(L6), "  Pressure (P):   \e[32m~1f Pa\e[0m", [P]),
     L7 = "  Gas Const (R):  \e[32m8.314 J/K\e[0m",
     L8 = "  Moles (n):      \e[32m0.50 mol\e[0m",
-    L9 = "─────────────────────────────",
+    L9 = "───────────────────────────────────",
     L10 = "\e[1;36m  SOLVER DERIVATION\e[0m",
-    L11 = "─────────────────────────────",
+    L11 = "───────────────────────────────────",
     
-    maplist(format_line_29, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11], TelemetryLines),
+    maplist(format_line_35, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11], TelemetryLines),
     
     take_n(6, DerivLines, DerivTrunc),
-    maplist(format_line_29, DerivTrunc, DerivPadded),
+    maplist(format_line_35, DerivTrunc, DerivPadded),
     
     append(TelemetryLines, DerivPadded, FullList),
-    pad_to_length(20, "                             ", FullList, PanelLines).
+    pad_to_length(20, "                                   ", FullList, PanelLines).
 
 
 %% ==========================================
@@ -1374,7 +1391,7 @@ title_row_string(Mode, Paused, RowString) :-
     format(string(Plain), " phi Unified Physics Solver - ~w Animation [~w]", [Mode, StatusPlain]),
     string_codes(Plain, Codes),
     length(Codes, VisLen),
-    PadCount is 88 - VisLen,
+    PadCount is 94 - VisLen,
     length(PadCodes, PadCount),
     maplist(=(32), PadCodes),
     string_codes(PadStr, PadCodes),
@@ -1397,17 +1414,17 @@ render_frame(Mode, SimState, T, DerivLines, Paused) :-
     get_right_panel(Mode, SimState, T, DerivLines, PanelLines),
     title_row_string(Mode, Paused, TitleRow),
     
-    write("\e[2;36m┌────────────────────────────────────────────────────────────────────────────────────────┐\e[0m\r\n"),
+    write("\e[2;36m┌──────────────────────────────────────────────────────────────────────────────────────────────┐\e[0m\r\n"),
     write(TitleRow), write("\r\n"),
-    write("\e[2;36m├──────────────────────────────────────────────────────────┬─────────────────────────────┤\e[0m\r\n"),
+    write("\e[2;36m├──────────────────────────────────────────────────────────┬───────────────────────────────────┤\e[0m\r\n"),
     
     print_middle_rows(ViewportGrid, PanelLines),
     
-    write("\e[2;36m├──────────────────────────────────────────────────────────┴─────────────────────────────┤\e[0m\r\n"),
-    format_line("  [Space] Pause/Play  |  [Tab] Switch Mode  |  [R] Reset  |  [Q] Exit to Menu", 88, F_controls),
+    write("\e[2;36m├──────────────────────────────────────────────────────────┴───────────────────────────────────┤\e[0m\r\n"),
+    format_line("  [Space] Pause/Play  |  [Tab] Switch Mode  |  [R] Reset  |  [Q] Exit to Menu", 94, F_controls),
     format("\e[2;36m│\e[0m~w\e[2;36m│\e[0m\r\n", [F_controls]),
     get_hint_line(Mode, HintText),
-    format_line(HintText, 88, F_hint),
+    format_line(HintText, 94, F_hint),
     format("\e[2;36m│\e[0m~w\e[2;36m│\e[0m\r\n", [F_hint]),
-    write("\e[2;36m└────────────────────────────────────────────────────────────────────────────────────────┘\e[0m\r\n"),
+    write("\e[2;36m└──────────────────────────────────────────────────────────────────────────────────────────────┘\e[0m\r\n"),
     flush_output.
