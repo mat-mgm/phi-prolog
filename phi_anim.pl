@@ -17,7 +17,19 @@ sleep_time(0.08).   % Real-time frame sleep duration
 %% INITIALIZATION & ENTRY POINT
 %% ==========================================
 main :-
-    menu.
+    current_prolog_flag(argv, Argv),
+    (Argv = [ModeStr|_] ->
+        atom_string(Mode, ModeStr),
+        (Mode == test ->
+            true
+        ; member(Mode, [bouncing_ball, projectile, orbit, spinning_top, pendulum]) ->
+            run_animation(Mode)
+        ;
+            menu
+        )
+    ;
+        menu
+    ).
 
 :- initialization(main).
 
@@ -48,7 +60,10 @@ menu :-
     nl,
     writeln("    \e[1;32m[1]\e[0m 🏀 Bouncing Ball (Gravity & elastic boundaries)"),
     writeln("    \e[1;32m[2]\e[0m 🚀 Projectile Launcher (Parabolic trajectory & collision)"),
-    writeln("    \e[1;32m[3]\e[0m 🪐 Planetary Orbit (Gravitational force solver)"),
+    writeln("    \e[1;32m[3]\e[0m 🪐 Binary Orbital Sim (Two-body gravity solver)"),
+    writeln("    \e[1;32m[4]\e[0m 🌀 Spinning Top (Gyroscopic precession & tilt)"),
+    writeln("    \e[1;32m[5]\e[0m ⛓️ Damped Pendulum (Gravity torque & damping)"),
+    writeln("    \e[1;32m[6]\e[0m ⚡ AC Circuit Solver (Multi-variable electrical loop)"),
     nl,
     writeln("    \e[1;31m[Q]\e[0m Quit Simulator"),
     nl,
@@ -63,6 +78,12 @@ menu :-
         run_animation(projectile)
     ; Key == '3' ->
         run_animation(orbit)
+    ; Key == '4' ->
+        run_animation(spinning_top)
+    ; Key == '5' ->
+        run_animation(pendulum)
+    ; Key == '6' ->
+        run_animation(circuit)
     ; Key == 'q' ->
         write("\e[H\e[2J"), halt
     ; Key == 'Q' ->
@@ -93,6 +114,26 @@ run_animation(Mode) :-
     ),
     
     menu.
+
+run_animation_direct(Mode) :-
+    init_sim_state(Mode, SimState),
+    T = 0.0,
+    Paused = false,
+    DerivLines = ["Simulation initialized.", "Waiting for first step..."],
+    
+    write("\e[?25l"), % Hide cursor
+    write("\e[H\e[2J"), % Clear screen
+    
+    setup_call_cleanup(
+        shell('stty raw -echo'),
+        animate_loop(state(Mode, SimState, T, Paused, DerivLines)),
+        (
+            shell('stty cooked echo'),
+            write("\e[?25h") % Show cursor
+        )
+    ),
+    write("\e[H\e[2J"),
+    halt.
 
 %% ==========================================
 %% ANIMATION LOOP
@@ -150,7 +191,10 @@ handle_key(_, Mode, SimState, T, Paused, Mode, SimState, T, Paused, continue).
 
 next_mode(bouncing_ball, projectile).
 next_mode(projectile, orbit).
-next_mode(orbit, bouncing_ball).
+next_mode(orbit, spinning_top).
+next_mode(spinning_top, pendulum).
+next_mode(pendulum, circuit).
+next_mode(circuit, bouncing_ball).
 
 %% ==========================================
 %% SOLVER WRAPPER WITH FAILSAFE
@@ -190,14 +234,14 @@ physics_step(bouncing_ball, bouncing_ball(X, Y, Vx, _Vy, PhaseStartT, PhaseU0, P
     ),
     
     % Elapsed time since the current bounce phase began
-    dT_phase is NextT - PhaseStartT,
+    DT_phase is NextT - PhaseStartT,
     
     % Query solver for vertical displacement (height delta)
-    format(string(QueryY), "initial velocity of ~f mps acceleration of -9.8 mps2 time of ~f s find displacement", [PhaseU0, dT_phase]),
+    format(string(QueryY), "initial velocity of ~f mps acceleration of -9.8 mps2 time of ~f s find displacement", [PhaseU0, DT_phase]),
     safe_solve_nl(QueryY, Sy, 0.0, DerivText),
     
     % Query solver for current vertical velocity
-    format(string(QueryVy), "initial velocity of ~f mps acceleration of -9.8 mps2 time of ~f s find velocity", [PhaseU0, dT_phase]),
+    format(string(QueryVy), "initial velocity of ~f mps acceleration of -9.8 mps2 time of ~f s find velocity", [PhaseU0, DT_phase]),
     safe_solve_nl(QueryVy, Vy_new, 0.0),
     
     Y_calc is PhaseY0 + Sy,
@@ -205,7 +249,7 @@ physics_step(bouncing_ball, bouncing_ball(X, Y, Vx, _Vy, PhaseStartT, PhaseU0, P
     % Handle ground collision
     (Y_calc =< 0.0 ->
         % Reconstruct impact velocity
-        Vy_impact is PhaseU0 + (-9.8) * dT_phase,
+        Vy_impact is PhaseU0 + (-9.8) * DT_phase,
         U_bounce is -0.80 * Vy_impact,
         
         (U_bounce < 0.6 ->
@@ -250,14 +294,14 @@ physics_step(projectile, projectile_sim(X, Y, Ux, Uy, T_start, Trail, State, Tar
     NextT is T + Dt,
     
     (State == flying ->
-        dT_phase is NextT - T_start,
+        DT_phase is NextT - T_start,
         
         % Query X displacement via solver
-        format(string(QueryX), "initial velocity of ~f mps acceleration of 0 mps2 time of ~f s find displacement", [Ux, dT_phase]),
+        format(string(QueryX), "initial velocity of ~f mps acceleration of 0 mps2 time of ~f s find displacement", [Ux, DT_phase]),
         safe_solve_nl(QueryX, Sx, 0.0),
         
         % Query Y displacement via solver
-        format(string(QueryY), "initial velocity of ~f mps acceleration of -9.8 mps2 time of ~f s find displacement", [Uy, dT_phase]),
+        format(string(QueryY), "initial velocity of ~f mps acceleration of -9.8 mps2 time of ~f s find displacement", [Uy, DT_phase]),
         safe_solve_nl(QueryY, Sy, 0.0, DerivText),
         
         X_calc is 2.0 + Sx,
@@ -272,7 +316,7 @@ physics_step(projectile, projectile_sim(X, Y, Ux, Uy, T_start, Trail, State, Tar
             NextT_start = NextT,
             NextExplFrame = 0,
             NextTrail = Trail
-        ; Y_calc =< 0.0, dT_phase > 0.2 ->
+        ; Y_calc =< 0.0, DT_phase > 0.2 ->
             NextX = X_calc,
             NextY = 0.0,
             NextState = landed,
@@ -333,49 +377,133 @@ physics_step(projectile, projectile_sim(X, Y, Ux, Uy, T_start, Trail, State, Tar
         DerivLines = ["Projectile Landed!", "Impacted the ground.", "Waiting for next launch..."]
     ).
 
-% 3. Planetary Orbit Step
-physics_step(orbit, orbit_sim(Px, Py, Vx, Vy, Trail, MassStar, MassPlanet), T,
-             orbit_sim(NextPx, NextPy, NextVx, NextVy, NextTrail, MassStar, MassPlanet), NextT, DerivLines) :-
+% 3. Binary Orbit Step (Two-Body)
+physics_step(orbit, orbit_sim(Px1, Py1, Vx1, Vy1, Px2, Py2, Vx2, Vy2, Trail1, Trail2, M1, M2), T,
+             orbit_sim(NextPx1, NextPy1, NextVx1, NextVy1, NextPx2, NextPy2, NextVx2, NextVy2, NextTrail1, NextTrail2, M1, M2), NextT, DerivLines) :-
     dt(Dt),
     NextT is T + Dt,
     
-    dx is Px - 24.0,
-    dy is Py - 8.0,
-    R is sqrt(dx * dx + dy * dy),
+    Dx is Px2 - Px1,
+    Dy is Py2 - Py1,
+    R is sqrt(Dx * Dx + Dy * Dy),
     
-    (R < 1.3 ->
-        % Collision with central Star! Reset planet
-        init_sim_state(orbit, orbit_sim(NextPx, NextPy, NextVx, NextVy, NextTrail, _, _)),
-        DerivLines = ["Collision detected!", "Planet fell into the star.", "System Reset!"]
+    (R < 1.5 ->
+        % Collision! Reset
+        init_sim_state(orbit, orbit_sim(NextPx1, NextPy1, NextVx1, NextVy1, NextPx2, NextPy2, NextVx2, NextVy2, NextTrail1, NextTrail2, _, _)),
+        DerivLines = ["Collision detected!", "Bodies collided and merged.", "System Reset!"]
     ;
-        % Query gravity solver for force
-        format(string(QueryF), "mass1 of 1e13 kg mass2 of 1 kg radius of ~f m find force", [R]),
+        % Query gravity solver for mutual force
+        format(string(QueryF), "mass1 of ~e kg mass2 of ~e kg radius of ~f m find force", [M1, M2, R]),
         safe_solve_nl(QueryF, Force, 0.0, DerivText),
         
-        % Query solver for acceleration
-        format(string(QueryA), "force of ~f newton mass of 1 kg find acceleration", [Force]),
-        safe_solve_nl(QueryA, Acc, 0.0),
+        % Query solver for acceleration of body 1
+        format(string(QueryA1), "force of ~f newton mass of ~e kg find acceleration", [Force, M1]),
+        safe_solve_nl(QueryA1, Acc1, 0.0),
         
-        % Update velocities (Euler-Cromer integration step)
-        Ax is -Acc * dx / R,
-        Ay is -Acc * dy / R,
+        % Query solver for acceleration of body 2
+        format(string(QueryA2), "force of ~f newton mass of ~e kg find acceleration", [Force, M2]),
+        safe_solve_nl(QueryA2, Acc2, 0.0),
         
-        NextVx is Vx + Ax * Dt,
-        NextVy is Vy + Ay * Dt,
+        % Directions: body 1 accelerated towards body 2, body 2 accelerated towards body 1
+        Ax1 is Acc1 * Dx / R,
+        Ay1 is Acc1 * Dy / R,
+        Ax2 is -Acc2 * Dx / R,
+        Ay2 is -Acc2 * Dy / R,
         
-        NextPx is Px + NextVx * Dt,
-        NextPy is Py + NextVy * Dt,
+        % Update velocities (Euler-Cromer)
+        NextVx1 is Vx1 + Ax1 * Dt,
+        NextVy1 is Vy1 + Ay1 * Dt,
+        NextVx2 is Vx2 + Ax2 * Dt,
+        NextVy2 is Vy2 + Ay2 * Dt,
         
-        append(Trail, [(Px, Py)], TempTrail),
-        (length(TempTrail, L), L > 24 ->
-            TempTrail = [_|NextTrail]
-        ;
-            NextTrail = TempTrail
-        ),
+        % Update positions
+        NextPx1 is Px1 + NextVx1 * Dt,
+        NextPy1 is Py1 + NextVy1 * Dt,
+        NextPx2 is Px2 + NextVx2 * Dt,
+        NextPy2 is Py2 + NextVy2 * Dt,
+        
+        % Update trails
+        append(Trail1, [(Px1, Py1)], TempTrail1),
+        (length(TempTrail1, L1), L1 > 20 -> TempTrail1 = [_|NextTrail1] ; NextTrail1 = TempTrail1),
+        append(Trail2, [(Px2, Py2)], TempTrail2),
+        (length(TempTrail2, L2), L2 > 20 -> TempTrail2 = [_|NextTrail2] ; NextTrail2 = TempTrail2),
         
         split_string(DerivText, "\n", "", DerivRawLines),
         exclude(==(""), DerivRawLines, DerivLines)
     ).
+
+% 4. Spinning Top Step
+physics_step(spinning_top, spinning_top_sim(X0, Y0, SpinRate, PrecessionAngle, TiltAngle, State, CollapseFrame), T,
+             spinning_top_sim(X0, Y0, NextSpinRate, NextPrecessionAngle, NextTiltAngle, NextState, NextCollapseFrame), NextT, DerivLines) :-
+    dt(Dt),
+    NextT is T + Dt,
+    (State == collapsed ->
+        NextSpinRate = 0.0,
+        NextPrecessionAngle = PrecessionAngle,
+        NextTiltAngle = TiltAngle,
+        NextCollapseFrame is CollapseFrame + 1,
+        (NextCollapseFrame > 30 ->
+            init_sim_state(spinning_top, spinning_top_sim(X0, Y0, NextSpinRate, NextPrecessionAngle, NextTiltAngle, NextState, NextCollapseFrame))
+        ;
+            NextState = collapsed
+        ),
+        DerivLines = ["Top has collapsed!", "Friction stopped rotation.", "System resetting..."]
+    ;
+        % Query decay of spin velocity
+        format(string(QueryDecay), "initial velocity of ~f mps acceleration of -0.8 mps2 time of ~f s find velocity", [SpinRate, Dt]),
+        safe_solve_nl(QueryDecay, TempSpinRate, 0.0, DerivText),
+        (TempSpinRate < 2.0 ->
+            NextSpinRate = 0.0,
+            NextPrecessionAngle = PrecessionAngle,
+            NextTiltAngle = 1.57,
+            NextState = collapsed,
+            NextCollapseFrame = 0
+        ;
+            NextSpinRate = TempSpinRate,
+            PrecessionRate is 20.0 * sin(TiltAngle) / NextSpinRate,
+            NextPrecessionAngle is PrecessionAngle + PrecessionRate * Dt,
+            TiltRate is 0.15 / (NextSpinRate + 0.001),
+            NextTiltAngle is TiltAngle + TiltRate * Dt,
+            NextState = stable,
+            NextCollapseFrame = 0
+        ),
+        split_string(DerivText, "\n", "", DerivRawLines),
+        exclude(==(""), DerivRawLines, DerivLines)
+    ).
+
+% 5. Damped Pendulum Step
+physics_step(pendulum, pendulum_sim(PivotX, PivotY, Length, Theta, Omega, State), T,
+             pendulum_sim(PivotX, PivotY, Length, NextTheta, NextOmega, NextState), NextT, DerivLines) :-
+    dt(Dt),
+    NextT is T + Dt,
+    GAcc = -9.8,
+    Force is GAcc * sin(Theta),
+    format(string(QueryA), "force of ~f newton mass of 1.0 kg find acceleration", [Force]),
+    safe_solve_nl(QueryA, Acc, 0.0, DerivText),
+    Alpha is Acc / Length,
+    Damping = -0.08,
+    DampedOmega is Omega + Damping * Omega * Dt,
+    NextOmega is DampedOmega + Alpha * Dt,
+    NextTheta is Theta + NextOmega * Dt,
+    NextState = State,
+    split_string(DerivText, "\n", "", DerivRawLines),
+    exclude(==(""), DerivRawLines, DerivLines).
+
+% 6. Circuit Solver Step
+physics_step(circuit, circuit_sim(_V, _I, _R, _P, _), T,
+             circuit_sim(NextV, NextI, NextR, NextP, NextT), NextT, DerivLines) :-
+    dt(Dt),
+    NextT is T + Dt,
+    % Oscillate voltage: V(t) = 10 * sin(NextT) + 12
+    NextV is 10.0 * sin(NextT) + 12.0,
+    % Oscillate resistance: R(t) = 4 * cos(0.5 * NextT) + 6
+    NextR is 4.0 * cos(0.5 * NextT) + 6.0,
+    % Query the multi-variable solver for current and power simultaneously
+    format(string(Query), "voltage of ~2f volt and resistance of ~2f ohm find current and power", [NextV, NextR]),
+    safe_solve_nl(Query, [NextI, NextP], [0.0, 0.0], DerivText),
+    split_string(DerivText, "\n", "", DerivRawLines),
+    exclude(==(""), DerivRawLines, DerivLines).
+
 
 %% ==========================================
 %% SIMULATION STATE INITIALIZERS
@@ -400,12 +528,12 @@ init_sim_state(projectile, projectile_sim(X, Y, Ux, Uy, T_start, Trail, flying, 
     TargetX = 40.0,
     TargetY = 0.5.
 
-init_sim_state(orbit, orbit_sim(Px, Py, Vx, Vy, Trail, 1e13, 1.0)) :-
-    Px = 24.0,
-    Py = 15.0,
-    Vx = -9.76,
-    Vy = 0.0,
-    Trail = [].
+init_sim_state(orbit, orbit_sim(16.0, 8.0, 0.0, -2.5, 32.0, 8.0, 0.0, 2.5, [], [], 3e12, 3e12)) :- !.
+
+init_sim_state(spinning_top, spinning_top_sim(24.0, 1.0, 25.0, 0.0, 0.05, stable, 0)) :- !.
+
+init_sim_state(pendulum, pendulum_sim(24.0, 14.0, 10.0, 0.95, 0.0, stable)) :- !.
+init_sim_state(circuit, circuit_sim(12.0, 2.0, 6.0, 24.0, 0.0)) :- !.
 
 %% ==========================================
 %% VIEWPORT ASCII RENDERING ENGINE
@@ -561,19 +689,251 @@ render_viewport(projectile, projectile_sim(X, Y, _, _, _, Trail, State, TargetX,
         NewGrid = G6
     ).
 
-render_viewport(orbit, orbit_sim(Px, Py, _, _, Trail, _, _), Grid, NewGrid) :-
+render_viewport(orbit, orbit_sim(Px1, Py1, _, _, Px2, Py2, _, _, Trail1, Trail2, _, _), Grid, NewGrid) :-
     empty_viewport(Grid),
     draw_space_background(Grid, Grid1),
-    set_cell(Grid1, 24.0, 8.0, '☼', Grid2),
-    draw_orbit_trail(Trail, Grid2, Grid3),
-    set_cell(Grid3, Px, Py, '●', NewGrid).
+    draw_orbit_trail(Trail1, Grid1, Grid2),
+    draw_orbit_trail(Trail2, Grid2, Grid3),
+    set_cell(Grid3, Px1, Py1, '●', Grid4),
+    set_cell(Grid4, Px2, Py2, '●', NewGrid).
+
+render_viewport(spinning_top, spinning_top_sim(X0, Y0, _SpinRate, PrecessionAngle, TiltAngle, State, _), Grid, NewGrid) :-
+    empty_viewport(Grid),
+    draw_ground(Grid, Grid1),
+    (State == collapsed ->
+        set_cell(Grid1, X0, Y0, '▲', G2),
+        set_cell(G2, X0 - 1.0, Y0, '═', G3),
+        set_cell(G3, X0 - 2.0, Y0, '║', G4),
+        set_cell(G4, X0 - 3.0, Y0, '║', G5),
+        set_cell(G5, X0 + 1.0, Y0, '◄', G6),
+        set_cell(G6, X0 + 2.0, Y0, '█', G7),
+        set_cell(G7, X0 + 3.0, Y0, '█', G8),
+        set_cell(G8, X0 + 4.0, Y0, '█', G9),
+        set_cell(G9, X0 + 5.0, Y0, '►', NewGrid)
+    ;
+        SpinCharIndex is integer(PrecessionAngle * 7) mod 9,
+        draw_top_layers(Grid1, 0, X0, Y0, TiltAngle, PrecessionAngle, SpinCharIndex, NewGrid)
+    ).
+
+render_viewport(pendulum, pendulum_sim(PivotX, PivotY, Length, Theta, _, _), Grid, NewGrid) :-
+    empty_viewport(Grid),
+    draw_ceiling(Grid, Grid1),
+    draw_pendulum_rod(Grid1, PivotX, PivotY, Length, Theta, Grid2),
+    set_cell(Grid2, PivotX, PivotY, '█', Grid3),
+    BobX is PivotX + Length * sin(Theta),
+    BobY is PivotY - Length * cos(Theta),
+    set_cell(Grid3, BobX, BobY, '❂', NewGrid).
+
+render_viewport(circuit, circuit_sim(V, I, R, P, Time), Grid, NewGrid) :-
+    empty_viewport(Grid),
+    draw_wires(Grid, G1),
+    draw_battery(G1, V, G2),
+    draw_resistor(G2, R, G3),
+    draw_bulb(G3, P, G4),
+    draw_electrons(G4, I, Time, NewGrid).
+
+draw_wires(Grid, NewGrid) :-
+    % corners: single-line borders
+    set_cell(Grid, 4, 14, '┌', G1),
+    set_cell(G1, 43, 14, '┐', G2),
+    set_cell(G2, 4, 2, '└', G3),
+    set_cell(G3, 43, 2, '┘', G4),
+    % top and bottom horizontal lines
+    draw_horiz(G4, 5, 42, 14, G5),
+    draw_horiz(G5, 5, 42, 2, G6),
+    % left and right vertical lines
+    draw_vert(G6, 4, 3, 13, G7),
+    draw_vert(G7, 43, 3, 13, NewGrid).
+
+draw_horiz(Grid, Max, Max, Y, NewGrid) :-
+    set_cell(Grid, Max, Y, '─', NewGrid), !.
+draw_horiz(Grid, X, Max, Y, NewGrid) :-
+    set_cell(Grid, X, Y, '─', TempGrid),
+    NextX is X + 1,
+    draw_horiz(TempGrid, NextX, Max, Y, NewGrid).
+
+draw_vert(Grid, X, Max, Max, NewGrid) :-
+    set_cell(Grid, X, Max, '│', NewGrid), !.
+draw_vert(Grid, X, Y, Max, NewGrid) :-
+    set_cell(Grid, X, Y, '│', TempGrid),
+    NextY is Y + 1,
+    draw_vert(TempGrid, X, NextY, Max, NewGrid).
+
+draw_battery(Grid, _V, NewGrid) :-
+    set_cell(Grid, 3, 10, '[', G1),
+    set_cell(G1, 4, 10, '+', G2),
+    set_cell(G2, 5, 10, ']', G3),
+    set_cell(G3, 4, 9, '│', G4),
+    set_cell(G4, 4, 8, 'V', G5),
+    set_cell(G5, 4, 7, '│', G6),
+    set_cell(G6, 3, 6, '[', G7),
+    set_cell(G7, 4, 6, '-', G8),
+    set_cell(G8, 5, 6, ']', NewGrid).
+
+draw_resistor(Grid, _R, NewGrid) :-
+    set_cell(Grid, 42, 10, '[', G1),
+    set_cell(G1, 43, 10, 'R', G2),
+    set_cell(G2, 44, 10, ']', G3),
+    set_cell(G3, 43, 9, '│', G4),
+    set_cell(G4, 43, 8, 'R', G5),
+    set_cell(G5, 43, 7, '│', G6),
+    set_cell(G6, 42, 6, '[', G7),
+    set_cell(G7, 43, 6, '_', G8),
+    set_cell(G8, 44, 6, ']', NewGrid).
+
+draw_bulb(Grid, P, NewGrid) :-
+    set_cell(Grid, 22, 14, '(', G1),
+    set_cell(G1, 23, 14, ' ', G2),
+    set_cell(G2, 24, 14, '*', G3),
+    set_cell(G3, 25, 14, ' ', G4),
+    set_cell(G4, 26, 14, ')', G5),
+    (P > 40.0 ->
+        set_cell(G5, 24, 15, '│', G6),
+        set_cell(G6, 23, 15, '╱', G7),
+        set_cell(G7, 25, 15, '╲', G8),
+        set_cell(G8, 23, 14, '─', G9),
+        set_cell(G9, 25, 14, '─', G10),
+        set_cell(G10, 24, 13, '│', G11),
+        set_cell(G11, 23, 13, '╲', G12),
+        set_cell(G12, 25, 13, '╱', NewGrid)
+    ; P > 10.0 ->
+        set_cell(G5, 23, 15, '╱', G6),
+        set_cell(G6, 25, 15, '╲', G7),
+        set_cell(G7, 23, 13, '╲', G8),
+        set_cell(G8, 25, 13, '╱', NewGrid)
+    ;
+        NewGrid = G5
+    ).
+
+draw_electrons(Grid, I, T, NewGrid) :-
+    circuit_path(Path),
+    length(Path, L),
+    Pos is round(5.0 * I * T) mod L,
+    draw_electron_loop(0, 8, Pos, L, Path, Grid, NewGrid).
+
+draw_electron_loop(8, _, _, _, _, Grid, Grid) :- !.
+draw_electron_loop(Idx, Count, Pos, L, Path, Grid, NewGrid) :-
+    Offset is (Pos + Idx * 13) mod L,
+    nth0(Offset, Path, (X, Y)),
+    (is_overlapping(X, Y) ->
+        TempGrid = Grid
+    ;
+        set_cell(Grid, X, Y, 'e', TempGrid)
+    ),
+    NextIdx is Idx + 1,
+    draw_electron_loop(NextIdx, Count, Pos, L, Path, TempGrid, NewGrid).
+
+is_overlapping(X, Y) :- X == 4, Y >= 6, Y =< 10, !.
+is_overlapping(X, Y) :- X == 43, Y >= 6, Y =< 10, !.
+is_overlapping(X, Y) :- Y == 14, X >= 22, X =< 26, !.
+
+circuit_path(Path) :-
+    findall((X, 14), between(4, 43, X), Top),
+    findall((43, Y), (between(2, 13, Y_rev), Y is 15 - Y_rev), Right),
+    findall((X, 2), (between(4, 42, X_rev), X is 46 - X_rev), Bottom),
+    findall((4, Y), between(3, 13, Y), Left),
+    append(Top, Right, Temp1),
+    append(Temp1, Bottom, Temp2),
+    append(Temp2, Left, Path).
+
+
+draw_top_layers(Grid, 8, _, _, _, _, _, Grid) :- !.
+draw_top_layers(Grid, L, X0, Y0, Tilt, Prec, Shift, NewGrid) :-
+    draw_top_layer(Grid, L, X0, Y0, Tilt, Prec, Shift, TempGrid),
+    L1 is L + 1,
+    draw_top_layers(TempGrid, L1, X0, Y0, Tilt, Prec, Shift, NewGrid).
+
+draw_top_layer(Grid, 0, X0, Y0, _, _, _, NewGrid) :-
+    set_cell(Grid, X0, Y0, '▲', NewGrid).
+
+draw_top_layer(Grid, 1, X0, Y0, Tilt, Prec, _, NewGrid) :-
+    X is X0 + 8.0 * (1/7) * sin(Tilt) * sin(Prec),
+    Y is Y0 + 8.0 * (1/7) * cos(Tilt),
+    set_cell(Grid, X - 1.0, Y, '\\', G1),
+    set_cell(G1, X, Y, '═', G2),
+    set_cell(G2, X + 1.0, Y, '/', NewGrid).
+
+draw_top_layer(Grid, 2, X0, Y0, Tilt, Prec, _, NewGrid) :-
+    X is X0 + 8.0 * (2/7) * sin(Tilt) * sin(Prec),
+    Y is Y0 + 8.0 * (2/7) * cos(Tilt),
+    set_cell(Grid, X - 2.0, Y, '\\', G1),
+    set_cell(G1, X - 1.0, Y, '═', G2),
+    set_cell(G2, X, Y, '═', G3),
+    set_cell(G3, X + 1.0, Y, '═', G4),
+    set_cell(G4, X + 2.0, Y, '/', NewGrid).
+
+draw_top_layer(Grid, 3, X0, Y0, Tilt, Prec, Shift, NewGrid) :-
+    X is X0 + 8.0 * (3/7) * sin(Tilt) * sin(Prec),
+    Y is Y0 + 8.0 * (3/7) * cos(Tilt),
+    set_cell(Grid, X - 5.0, Y, '(', G1),
+    set_cell(G1, X + 5.0, Y, ')', G2),
+    S is abs(Shift) mod 9,
+    build_disk_chars_9(0, S, Chars),
+    draw_disk_row_top(G2, X - 4.0, Y, Chars, NewGrid).
+
+draw_top_layer(Grid, 4, X0, Y0, Tilt, Prec, _, NewGrid) :-
+    X is X0 + 8.0 * (4/7) * sin(Tilt) * sin(Prec),
+    Y is Y0 + 8.0 * (4/7) * cos(Tilt),
+    set_cell(Grid, X - 2.0, Y, '[', G1),
+    set_cell(G1, X - 1.0, Y, '═', G2),
+    set_cell(G2, X, Y, '═', G3),
+    set_cell(G3, X + 1.0, Y, '═', G4),
+    set_cell(G4, X + 2.0, Y, ']', NewGrid).
+
+draw_top_layer(Grid, 5, X0, Y0, Tilt, Prec, _, NewGrid) :-
+    X is X0 + 8.0 * (5/7) * sin(Tilt) * sin(Prec),
+    Y is Y0 + 8.0 * (5/7) * cos(Tilt),
+    set_cell(Grid, X - 1.0, Y, '/', G1),
+    set_cell(G1, X, Y, '─', G2),
+    set_cell(G2, X + 1.0, Y, '\\', NewGrid).
+
+draw_top_layer(Grid, 6, X0, Y0, Tilt, Prec, _, NewGrid) :-
+    X is X0 + 8.0 * (6/7) * sin(Tilt) * sin(Prec),
+    Y is Y0 + 8.0 * (6/7) * cos(Tilt),
+    set_cell(Grid, X, Y, '║', NewGrid).
+
+draw_top_layer(Grid, 7, X0, Y0, Tilt, Prec, _, NewGrid) :-
+    X is X0 + 8.0 * (7/7) * sin(Tilt) * sin(Prec),
+    Y is Y0 + 8.0 * (7/7) * cos(Tilt),
+    set_cell(Grid, X, Y, '║', NewGrid).
+
+build_disk_chars_9(9, _, []) :- !.
+build_disk_chars_9(Idx, Shift, [Char|Rest]) :-
+    (Idx == Shift -> Char = '★' ; Char = '═'),
+    NextIdx is Idx + 1,
+    build_disk_chars_9(NextIdx, Shift, Rest).
+
+draw_disk_row_top(Grid, _, _, [], Grid) :- !.
+draw_disk_row_top(Grid, X, Y, [C|Rest], NewGrid) :-
+    set_cell(Grid, X, Y, C, TempGrid),
+    NextX is X + 1.0,
+    draw_disk_row_top(TempGrid, NextX, Y, Rest, NewGrid).
+
+draw_ceiling(Grid, NewGrid) :-
+    draw_ceiling_loop(1, 46, Grid, NewGrid).
+
+draw_ceiling_loop(Col, _Max, Grid, Grid) :-
+    set_cell(Grid, Col, 16.0, '═', Grid), !.
+draw_ceiling_loop(Col, Max, Grid, NewGrid) :-
+    set_cell(Grid, Col, 16.0, '═', TempGrid),
+    NextCol is Col + 1,
+    draw_ceiling_loop(NextCol, Max, TempGrid, NewGrid).
+
+draw_pendulum_rod(Grid, _, _, I, _, Grid) :- I =< 0.5, !.
+draw_pendulum_rod(Grid, PivotX, PivotY, I, Theta, NewGrid) :-
+    X is PivotX + I * sin(Theta),
+    Y is PivotY - I * cos(Theta),
+    set_cell(Grid, X, Y, '░', TempGrid),
+    NextI is I - 0.5,
+    draw_pendulum_rod(TempGrid, PivotX, PivotY, NextI, Theta, NewGrid).
 
 %% ==========================================
 %% COLORIZED RENDER PIPELINE
 %% ==========================================
 print_viewport_row_colorized([]).
 print_viewport_row_colorized([Char|Rest]) :-
-    print_char_colorized(Char),
+    (integer(Char) -> Code = Char ; char_code(Char, Code)),
+    print_char_colorized(Code),
     print_viewport_row_colorized(Rest).
 
 print_char_colorized(32)   :- !, put_char(' ').
@@ -583,49 +943,78 @@ print_char_colorized(94)   :- !, write("\e[1;32m^\e[0m").  % ^ (ball rising)
 print_char_colorized(95)   :- !, write("\e[1;32m_\e[0m").  % _ (ball squashed)
 print_char_colorized(111)  :- !, write("\e[2;32mo\e[0m").  % o (trail ball)
 print_char_colorized(46)   :- !, write("\e[2;37m.\e[0m").  % . (trail older)
-print_char_colorized(9552) :- !, write("\e[1;33m═\e[0m").  % ═ (ground)
+print_char_colorized(9552) :- !, write("\e[1;33m═\e[0m").  % ═ (ground/ceiling)
 print_char_colorized(9553) :- !, write("\e[2;36m║\e[0m").  % ║ (walls)
-print_char_colorized(9608) :- !, write("\e[1;37m█\e[0m").  % █ (cannon)
+print_char_colorized(9608) :- !, write("\e[1;37m█\e[0m").  % █ (cannon/pivot)
 print_char_colorized(9700) :- !, write("\e[1;37m◤\e[0m").  % ◤ (cannon)
 print_char_colorized(42)   :- !, write("\e[1;33m*\e[0m").  % * (projectile)
 print_char_colorized(9678) :- !, write("\e[1;31m◎\e[0m").  % ◎ (target)
 print_char_colorized(9788) :- !, write("\e[1;33m☼\e[0m").  % ☼ (star)
-print_char_colorized(9679) :- !, write("\e[1;36m●\e[0m").  % ● (planet)
-print_char_colorized(183)  :- !, write("\e[2;36m·\e[0m").  % · (planet trail)
+print_char_colorized(9679) :- !, write("\e[1;36m●\e[0m").  % ● (planet/body)
+print_char_colorized(183)  :- !, write("\e[2;36m·\e[0m").  % · (trail)
 print_char_colorized(64)   :- !, write("\e[1;31m@\e[0m").  % @ (explosion)
 print_char_colorized(35)   :- !, write("\e[1;33m#\e[0m").  % # (explosion)
+print_char_colorized(9650) :- !, write("\e[1;33m▲\e[0m").  % ▲ (spinning top spindle)
+print_char_colorized(9664) :- !, write("\e[1;33m◄\e[0m").  % ◄ (collapsed top body)
+print_char_colorized(9654) :- !, write("\e[1;33m►\e[0m").  % ► (collapsed top body)
+print_char_colorized(9733) :- !, write("\e[1;35m★\e[0m").  % ★ (precession indicator)
+print_char_colorized(9472) :- !, write("\e[1;33m─\e[0m").  % ─ (spinning top disk)
+print_char_colorized(9738) :- !, write("\e[1;31m❂\e[0m").  % ❂ (pendulum bob)
+print_char_colorized(9617) :- !, write("\e[2;37m░\e[0m").  % ░ (pendulum rod)
 print_char_colorized(164)  :- !, write("\e[1;31m¤\e[0m").  % ¤ (explosion)
+print_char_colorized(101)  :- !, write("\e[1;36me\e[0m").  % e (electron)
+print_char_colorized(9474) :- !, write("\e[2;36m│\e[0m").  % │ (wire/resistor/battery)
+print_char_colorized(9484) :- !, write("\e[2;36m┌\e[0m").  % ┌ (corner)
+print_char_colorized(9488) :- !, write("\e[2;36m┐\e[0m").  % ┐ (corner)
+print_char_colorized(9492) :- !, write("\e[2;36m└\e[0m").  % └ (corner)
+print_char_colorized(9496) :- !, write("\e[2;36m┘\e[0m").  % ┘ (corner)
+print_char_colorized(9585) :- !, write("\e[1;33m╱\e[0m").  % ╱ (bulb ray)
+print_char_colorized(9586) :- !, write("\e[1;33m╲\e[0m").  % ╲ (bulb ray)
 print_char_colorized(Code) :-
     char_code(Char, Code),
     put_char(Char).
 
 print_middle_rows([], []).
 print_middle_rows([ViewportRow|ViewportRest], [PanelRow|PanelRest]) :-
-    write("\e[2;36m║\e[0m"),
+    write("\e[2;36m│\e[0m"),
     print_viewport_row_colorized(ViewportRow),
-    write("\e[2;36m║\e[0m"),
+    write("\e[2;36m│\e[0m"),
     write(PanelRow),
-    write("\e[2;36m║\e[0m"),
-    nl,
+    write("\e[2;36m│\e[0m"),
+    write("\r\n"),
     print_middle_rows(ViewportRest, PanelRest).
 
 %% ==========================================
 %% TELEMETRY & SIDEBAR PANEL BUILDER
 %% ==========================================
+visible_length(String, Len) :-
+    string_codes(String, Codes),
+    codes_visible_length(Codes, 0, Len).
+
+codes_visible_length([], Acc, Acc).
+codes_visible_length([27|Rest], Acc, Len) :- !,
+    skip_escape(Rest, NextRest),
+    codes_visible_length(NextRest, Acc, Len).
+codes_visible_length([_|Rest], Acc, Len) :-
+    Acc1 is Acc + 1,
+    codes_visible_length(Rest, Acc1, Len).
+
+skip_escape([], []) :- !.
+skip_escape([109|Rest], Rest) :- !.
+skip_escape([_|Rest], Out) :-
+    skip_escape(Rest, Out).
+
 format_line(String, Width, Formatted) :-
     format(string(Str), "~w", [String]),
-    string_codes(Str, Codes),
-    length(Codes, L),
+    visible_length(Str, L),
     (L >= Width ->
-        length(TruncCodes, Width),
-        append(TruncCodes, _, Codes),
-        string_codes(Formatted, TruncCodes)
+        Formatted = Str
     ;
         Diff is Width - L,
         length(PadCodes, Diff),
         maplist(=(32), PadCodes),
-        append(Codes, PadCodes, NewCodes),
-        string_codes(Formatted, NewCodes)
+        string_codes(PadStr, PadCodes),
+        string_concat(Str, PadStr, Formatted)
     ).
 
 format_line_29(String, Formatted) :-
@@ -696,24 +1085,25 @@ get_right_panel(projectile, projectile_sim(X, Y, Ux, Uy, _, _, State, TargetX, T
     append(TelemetryLines, DerivPadded, FullList),
     pad_to_length(17, "                           ", FullList, PanelLines).
 
-get_right_panel(orbit, orbit_sim(Px, Py, Vx, Vy, _, MassStar, MassPlanet), T, DerivLines, PanelLines) :-
-    dx is Px - 24.0,
-    dy is Py - 8.0,
-    R is sqrt(dx * dx + dy * dy),
-    Speed is sqrt(Vx * Vx + Vy * Vy),
-    F is 6.6743e-11 * MassStar * MassPlanet / (R * R),
+get_right_panel(orbit, orbit_sim(Px1, Py1, Vx1, Vy1, Px2, Py2, Vx2, Vy2, _, _, M1, M2), T, DerivLines, PanelLines) :-
+    Dx is Px2 - Px1,
+    Dy is Py2 - Py1,
+    R is sqrt(Dx * Dx + Dy * Dy),
+    Speed1 is sqrt(Vx1 * Vx1 + Vy1 * Vy1),
+    Speed2 is sqrt(Vx2 * Vx2 + Vy2 * Vy2),
+    F is 6.6743e-11 * M1 * M2 / (R * R),
     
     L1 = "\e[1;36m  === PHYSICS TELEMETRY ===\e[0m",
     L2 = "  -------------------------",
     format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
-    format(string(L4), "  Planet X:       \e[32m~2f m\e[0m", [Px]),
-    format(string(L5), "  Planet Y:       \e[32m~2f m\e[0m", [Py]),
-    format(string(L6), "  Velocity (Vx):  \e[32m~2f m/s\e[0m", [Vx]),
-    format(string(L7), "  Velocity (Vy):  \e[32m~2f m/s\e[0m", [Vy]),
-    format(string(L8), "  Speed (v):      \e[32m~2f m/s\e[0m", [Speed]),
-    format(string(L9), "  Orbital Dist R: \e[32m~2f m\e[0m", [R]),
-    format(string(L10), "  Grav. Force F:  \e[32m~2f N\e[0m", [F]),
-    format(string(L11), "  Star Mass M:    \e[32m~1e kg\e[0m", [MassStar]),
+    format(string(L4), "  Body 1:         \e[32m(~1f,~1f)\e[0m", [Px1, Py1]),
+    format(string(L5), "  Body 2:         \e[32m(~1f,~1f)\e[0m", [Px2, Py2]),
+    format(string(L6), "  Speed 1:        \e[32m~2f m/s\e[0m", [Speed1]),
+    format(string(L7), "  Speed 2:        \e[32m~2f m/s\e[0m", [Speed2]),
+    format(string(L8), "  Mutual Dist R:  \e[32m~2f m\e[0m", [R]),
+    format(string(L9), "  Grav. Force F:  \e[32m~2e N\e[0m", [F]),
+    format(string(L10), "  Mass 1:         \e[32m~1e kg\e[0m", [M1]),
+    format(string(L11), "  Mass 2:         \e[32m~1e kg\e[0m", [M2]),
     L12 = "  -------------------------",
     L13 = "\e[1;36m  === SOLVER DERIVATION ===\e[0m",
     L14 = "  -------------------------",
@@ -725,6 +1115,76 @@ get_right_panel(orbit, orbit_sim(Px, Py, Vx, Vy, _, MassStar, MassPlanet), T, De
     
     append(TelemetryLines, DerivPadded, FullList),
     pad_to_length(17, "                           ", FullList, PanelLines).
+
+get_right_panel(spinning_top, spinning_top_sim(_, _, SpinRate, PrecAngle, TiltAngle, State, _), T, DerivLines, PanelLines) :-
+    L1 = "\e[1;36m  === PHYSICS TELEMETRY ===\e[0m",
+    L2 = "  -------------------------",
+    format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
+    format(string(L4), "  Spin Rate (ws): \e[32m~2f r/s\e[0m", [SpinRate]),
+    format(string(L5), "  Prec Angle (p): \e[32m~2f rad\e[0m", [PrecAngle]),
+    format(string(L6), "  Tilt Angle (th):\e[32m~2f rad\e[0m", [TiltAngle]),
+    format(string(L7), "  State:          \e[33m~w\e[0m", [State]),
+    L8 = "  -------------------------",
+    L9 = "\e[1;36m  === SOLVER DERIVATION ===\e[0m",
+    L10 = "  -------------------------",
+    
+    maplist(format_line_29, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10], TelemetryLines),
+    
+    take_n(7, DerivLines, DerivTrunc),
+    maplist(format_line_29, DerivTrunc, DerivPadded),
+    
+    append(TelemetryLines, DerivPadded, FullList),
+    pad_to_length(17, "                           ", FullList, PanelLines).
+
+get_right_panel(pendulum, pendulum_sim(_, _, Length, Theta, Omega, State), T, DerivLines, PanelLines) :-
+    Vel is Omega * Length,
+    AccTang is -9.8 * sin(Theta),
+    PE is 1.0 * 9.8 * Length * (1.0 - cos(Theta)),
+    KE is 0.5 * 1.0 * Vel * Vel,
+    TE is PE + KE,
+    
+    L1 = "\e[1;36m  === PHYSICS TELEMETRY ===\e[0m",
+    L2 = "  -------------------------",
+    format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
+    format(string(L4), "  Angle (theta):  \e[32m~2f rad\e[0m", [Theta]),
+    format(string(L5), "  Ang Vel (w):    \e[32m~2f r/s\e[0m", [Omega]),
+    format(string(L6), "  Tang Acc (at):  \e[32m~2f m/s2\e[0m", [AccTang]),
+    format(string(L7), "  PE (Energy):    \e[32m~1f J\e[0m", [PE]),
+    format(string(L8), "  KE (Energy):    \e[32m~1f J\e[0m", [KE]),
+    format(string(L9), "  TE (Energy):    \e[32m~1f J\e[0m", [TE]),
+    format(string(L10), "  State:          \e[33m~w\e[0m", [State]),
+    L11 = "  -------------------------",
+    L12 = "\e[1;36m  === SOLVER DERIVATION ===\e[0m",
+    L13 = "  -------------------------",
+    
+    maplist(format_line_29, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, L11, L12, L13], TelemetryLines),
+    
+    take_n(4, DerivLines, DerivTrunc),
+    maplist(format_line_29, DerivTrunc, DerivPadded),
+    
+    append(TelemetryLines, DerivPadded, FullList),
+    pad_to_length(17, "                           ", FullList, PanelLines).
+
+get_right_panel(circuit, circuit_sim(V, I, R, P, _), T, DerivLines, PanelLines) :-
+    L1 = "\e[1;36m  === PHYSICS TELEMETRY ===\e[0m",
+    L2 = "  -------------------------",
+    format(string(L3), "  Sim Time (t):   \e[32m~2f s\e[0m", [T]),
+    format(string(L4), "  Voltage (V):    \e[32m~2f V\e[0m", [V]),
+    format(string(L5), "  Resistance (R): \e[32m~2f ohm\e[0m", [R]),
+    format(string(L6), "  Current (I):    \e[32m~2f A\e[0m", [I]),
+    format(string(L7), "  Power (P):      \e[32m~2f W\e[0m", [P]),
+    L8 = "  -------------------------",
+    L9 = "\e[1;36m  === SOLVER DERIVATION ===\e[0m",
+    L10 = "  -------------------------",
+    
+    maplist(format_line_29, [L1, L2, L3, L4, L5, L6, L7, L8, L9, L10], TelemetryLines),
+    
+    take_n(7, DerivLines, DerivTrunc),
+    maplist(format_line_29, DerivTrunc, DerivPadded),
+    
+    append(TelemetryLines, DerivPadded, FullList),
+    pad_to_length(17, "                           ", FullList, PanelLines).
+
 
 %% ==========================================
 %% HEADER & FOOTER FORMATTERS
@@ -745,11 +1205,14 @@ title_row_string(Mode, Paused, RowString) :-
     length(PadCodes, PadCount),
     maplist(=(32), PadCodes),
     string_codes(PadStr, PadCodes),
-    format(string(RowString), "\e[2;36m║\e[0m~w~w\e[2;36m║\e[0m", [TitleText, PadStr]).
+    format(string(RowString), "\e[2;36m│\e[0m~w~w\e[2;36m│\e[0m", [TitleText, PadStr]).
 
 get_hint_line(bouncing_ball, "  System: 2.0 kg ball falling under gravity (g=-9.8 mps2) and bouncing off borders.").
 get_hint_line(projectile, "  System: Cannon firing projectile at 55 deg, 22.0 mps. Hits trigger explosions!").
-get_hint_line(orbit, "  System: Planet orbiting a massive star (M=1e13 kg) using Newton's gravity solver.").
+get_hint_line(orbit, "  System: Two massive bodies orbiting each other via gravitational attraction solver.").
+get_hint_line(spinning_top, "  System: Spinning top undergoing gyroscopic precession and tilt decay due to friction.").
+get_hint_line(pendulum, "  System: Damped simple pendulum swinging under gravity torque with air resistance.").
+get_hint_line(circuit, "  System: AC circuit loop with moving electrons and dynamically solved I & P.").
 
 %% ==========================================
 %% WINDOW RENDERING ENTRY POINT
@@ -760,16 +1223,16 @@ render_frame(Mode, SimState, T, DerivLines, Paused) :-
     get_right_panel(Mode, SimState, T, DerivLines, PanelLines),
     title_row_string(Mode, Paused, TitleRow),
     
-    write("\e[2;36m╔══════════════════════════════════════════════════════════════════════════════╗\e[0m\n"),
-    write(TitleRow), write("\n"),
-    write("\e[2;36m╠════════════════════════════════════════════════╦═════════════════════════════╣\e[0m\n"),
+    write("\e[2;36m┌──────────────────────────────────────────────────────────────────────────────┐\e[0m\r\n"),
+    write(TitleRow), write("\r\n"),
+    write("\e[2;36m├────────────────────────────────────────────────┬─────────────────────────────┤\e[0m\r\n"),
     
     print_middle_rows(ViewportGrid, PanelLines),
     
-    write("\e[2;36m╠════════════════════════════════════════════════╩═════════════════════════════╣\e[0m\n"),
-    write("\e[2;37m║  [Space] Pause/Play  |  [Tab] Switch Mode  |  [R] Reset  |  [Q] Exit to Menu         ║\e[0m\n"),
+    write("\e[2;36m├────────────────────────────────────────────────┴─────────────────────────────┤\e[0m\r\n"),
+    write("\e[2;37m│  [Space] Pause/Play  |  [Tab] Switch Mode  |  [R] Reset  |  [Q] Exit to Menu │\e[0m\r\n"),
     get_hint_line(Mode, HintText),
     format_line(HintText, 78, F_hint),
-    format("\e[2;36m║\e[0m~w\e[2;36m║\e[0m~n", [F_hint]),
-    write("\e[2;36m╚══════════════════════════════════════════════════════════════════════════════╝\e[0m\n"),
+    format("\e[2;36m│\e[0m~w\e[2;36m│\e[0m\r\n", [F_hint]),
+    write("\e[2;36m└──────────────────────────────────────────────────────────────────────────────┘\e[0m\r\n"),
     flush_output.
