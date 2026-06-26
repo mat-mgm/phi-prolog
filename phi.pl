@@ -40,6 +40,10 @@ var_dim(g_const, [3,-1,-2,0,0,0,0]).
 var_dim(m1,      [0,1,0,0,0,0,0]).
 var_dim(m2,      [0,1,0,0,0,0,0]).
 var_dim(r,       [1,0,0,0,0,0,0]).
+var_dim(density,  [-3,1,0,0,0,0,0]).
+var_dim(vol,      [3,0,0,0,0,0,0]).
+var_dim(pressure, [-1,1,-2,0,0,0,0]).
+
 
 % Dimensions arithmetic
 dim_add([], [], []).
@@ -101,6 +105,23 @@ unit(a,      [0,0,0,1,0,0,0], 1.0).
 unit(ohm,    [2,1,-3,-2,0,0,0], 1.0).
 unit(r,      [2,1,-3,-2,0,0,0], 1.0).
 
+% Density units
+unit(kg_per_m3, [-3,1,0,0,0,0,0], 1.0).
+unit(g_per_cm3, [-3,1,0,0,0,0,0], 1000.0).
+
+% Volume units
+unit(m3,        [3,0,0,0,0,0,0], 1.0).
+unit(liter,     [3,0,0,0,0,0,0], 0.001).
+unit(l,         [3,0,0,0,0,0,0], 0.001).
+unit(liters,    [3,0,0,0,0,0,0], 0.001).
+
+% Pressure units
+unit(pascal,    [-1,1,-2,0,0,0,0], 1.0).
+unit(pa,        [-1,1,-2,0,0,0,0], 1.0).
+unit(atm,       [-1,1,-2,0,0,0,0], 101325.0).
+unit(bar,       [-1,1,-2,0,0,0,0], 100000.0).
+
+
 % Word plural aliases
 unit(meters,    [1,0,0,0,0,0,0], 1.0).
 unit(kilograms, [0,1,0,0,0,0,0], 1.0).
@@ -128,6 +149,9 @@ base_eq(potential_energy, pe = m * g * h).
 base_eq(ohm,              volts = amp * res).
 base_eq(power,            p = volts * amp).
 base_eq(gravity,          f = g_const * m1 * m2 / (r * r)).
+base_eq(density,          density = m / vol).
+base_eq(hydrostatic_pres, pressure = density * g * h).
+
 
 base_eq_normalized(Name, NormalEq) :-
     base_eq(Name, Eq),
@@ -456,6 +480,9 @@ phrase_item(var(u, N, Dim, Scale)) --> [initial, velocity, of], number_or_float(
 phrase_item(var(v, N, Dim, Scale)) --> [final, velocity, of], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(h, N, Dim, Scale)) --> [height, of], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(h, N, Dim, Scale)) --> [height], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(vol, N, Dim, Scale)) --> [volume, of], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(vol, N, Dim, Scale)) --> [volume], number_or_float(N), unit_name(_, Dim, Scale).
+
 
 phrase_item(var(Name, N, Dim, Scale)) -->
     optional_preposition,
@@ -481,9 +508,14 @@ goal_word --> [calculate].
 goal_word --> [solve, for].
 
 goal_target(f)     --> [force].
+goal_target(r)     --> [separation].
+goal_target(r)     --> [radius].
+goal_target(density)   --> [density].
+goal_target(vol)       --> [volume].
+goal_target(pressure)  --> [pressure].
+goal_target(m)     --> [mass].
 goal_target(a)     --> [acceleration].
 goal_target(t)     --> [time].
-goal_target(m)     --> [mass].
 goal_target(v)     --> [velocity].
 goal_target(u)     --> [initial, velocity].
 goal_target(s)     --> [displacement].
@@ -521,6 +553,17 @@ determine_name_from_unit(r, res).
 determine_name_from_unit(m, s).
 determine_name_from_unit(km, s).
 determine_name_from_unit(cm, s).
+determine_name_from_unit(kg_per_m3, density).
+determine_name_from_unit(g_per_cm3, density).
+determine_name_from_unit(m3, vol).
+determine_name_from_unit(liter, vol).
+determine_name_from_unit(l, vol).
+determine_name_from_unit(liters, vol).
+determine_name_from_unit(pascal, pressure).
+determine_name_from_unit(pa, pressure).
+determine_name_from_unit(atm, pressure).
+determine_name_from_unit(bar, pressure).
+
 determine_name_from_unit(meters, s).
 determine_name_from_unit(kilograms, m).
 determine_name_from_unit(seconds, t).
@@ -593,6 +636,10 @@ filler_word(moving).
 filler_word(travels).
 filler_word(traveling).
 filler_word(height).
+filler_word(density).
+filler_word(volume).
+filler_word(pressure).
+
 
 %% ==========================================
 %% INITIALIZATION & SOLVER PIPELINE
@@ -618,7 +665,11 @@ initialize_state(ParsedVars, FullState) :-
         var(g_const, 6.6743e-11, [3,-1,-2,0,0,0,0], 1.0),
         var(m1, _, [0,1,0,0,0,0,0], 1.0),
         var(m2, _, [0,1,0,0,0,0,0], 1.0),
-        var(r, _, [1,0,0,0,0,0,0], 1.0)
+        var(r, _, [1,0,0,0,0,0,0], 1.0),
+        var(density, _, [-3,1,0,0,0,0,0], 1.0),
+        var(vol, _, [3,0,0,0,0,0,0], 1.0),
+        var(pressure, _, [-1,1,-2,0,0,0,0], 1.0)
+
     ],
     maplist(merge_var(ParsedVars), AllVars, FullState).
 
@@ -674,6 +725,13 @@ get_goal_unit(volts, volt).
 get_goal_unit(amp, amp).
 get_goal_unit(res, ohm).
 get_goal_unit(p, watt).
+get_goal_unit(m1, kg).
+get_goal_unit(m2, kg).
+get_goal_unit(r, m).
+get_goal_unit(density, kg_per_m3).
+get_goal_unit(vol, m3).
+get_goal_unit(pressure, pascal).
+
 
 %% ==========================================
 %% TEST SUITE
@@ -710,7 +768,16 @@ run_tests :-
     writeln("Input: 'Mass of 2 kg, starting from rest, accelerates to 20 mps in 5 s. Find force.'"),
     solve_nl("Mass of 2 kg, starting from rest, accelerates to 20 mps in 5 s. Find force.", _),
 
+    writeln("\n--- TEST 7: Density Calculation ---"),
+    writeln("Input: 'mass of 10 kg and volume of 2 m3 find density'"),
+    solve_nl("mass of 10 kg and volume of 2 m3 find density", _),
+
+    writeln("\n--- TEST 8: Hydrostatic Pressure ---"),
+    writeln("Input: 'density of 1000 kg_per_m3 at height of 10 m find pressure'"),
+    solve_nl("density of 1000 kg_per_m3 at height of 10 m find pressure", _),
+
     writeln("\n=================================================="),
     writeln("TEST SUITE COMPLETE"),
     writeln("==================================================").
+
 
