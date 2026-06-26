@@ -49,6 +49,16 @@ var_dim(t_period, [0,0,1,0,0,0,0]).
 var_dim(n_amount, [0,0,0,0,0,1,0]).
 var_dim(r_gas,    [2,1,-2,0,-1,-1,0]).
 var_dim(temp,     [0,0,0,0,1,0,0]).
+var_dim(torque,   [2,1,-2,0,0,0,0]).
+var_dim(i_inertia, [2,1,0,0,0,0,0]).
+var_dim(alpha_rot, [0,0,-2,0,0,0,0]).
+var_dim(omega_rot, [0,0,-1,0,0,0,0]).
+var_dim(l_ang_mom, [2,1,-1,0,0,0,0]).
+var_dim(ke_rot,   [2,1,-2,0,0,0,0]).
+var_dim(q_heat,   [2,1,-2,0,0,0,0]).
+var_dim(c_heat,   [2,0,-2,0,-1,0,0]).
+var_dim(delta_temp, [0,0,0,0,1,0,0]).
+
 
 
 
@@ -148,6 +158,17 @@ unit(moles,     [0,0,0,0,0,1,0], 1.0).
 % Gas constant units
 unit(j_per_mol_k, [2,1,-2,0,-1,-1,0], 1.0).
 
+% Rotational dynamics units
+unit(n_m,        [2,1,-2,0,0,0,0], 1.0).
+unit(kg_m2,      [2,1,0,0,0,0,0], 1.0).
+unit(rad_per_s2, [0,0,-2,0,0,0,0], 1.0).
+unit(rad_per_s,  [0,0,-1,0,0,0,0], 1.0).
+unit(kg_m2_per_s, [2,1,-1,0,0,0,0], 1.0).
+
+% Heat units
+unit(j_per_kg_k, [2,0,-2,0,-1,0,0], 1.0).
+
+
 
 
 
@@ -184,6 +205,11 @@ base_eq(centripetal_acc,  a = v * v / r).
 base_eq(wave_speed,       v = freq * lambda).
 base_eq(wave_period,      freq = 1 / t_period).
 base_eq(ideal_gas,        pressure * vol = n_amount * r_gas * temp).
+base_eq(torque_eq,        torque = i_inertia * alpha_rot).
+base_eq(rotational_ke,    ke_rot = 0.5 * i_inertia * omega_rot * omega_rot).
+base_eq(angular_momentum, l_ang_mom = i_inertia * omega_rot).
+base_eq(heat_energy,      q_heat = m * c_heat * delta_temp).
+
 
 
 
@@ -526,6 +552,11 @@ phrase_item(var(t_period, N, Dim, Scale)) --> [period, of], number_or_float(N), 
 phrase_item(var(t_period, N, Dim, Scale)) --> [period], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(temp, N, Dim, Scale)) --> [temperature, of], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(temp, N, Dim, Scale)) --> [temperature], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(delta_temp, N, Dim, Scale)) --> [temperature, difference, of], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(delta_temp, N, Dim, Scale)) --> [change, in, temperature, of], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(delta_temp, N, Dim, Scale)) --> [temperature, difference], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(delta_temp, N, Dim, Scale)) --> [change, in, temperature], number_or_float(N), unit_name(_, Dim, Scale).
+
 
 
 
@@ -566,6 +597,21 @@ goal_target(t_period)  --> [period].
 goal_target(n_amount)  --> [amount, of, substance].
 goal_target(n_amount)  --> [moles].
 goal_target(temp)      --> [temperature].
+goal_target(torque)       --> [torque].
+goal_target(i_inertia)    --> [moment, of, inertia].
+goal_target(i_inertia)    --> [inertia].
+goal_target(alpha_rot)    --> [angular, acceleration].
+goal_target(omega_rot)    --> [angular, velocity].
+goal_target(l_ang_mom)    --> [angular, momentum].
+goal_target(ke_rot)       --> [rotational, kinetic, energy].
+goal_target(ke_rot)       --> [rotational, energy].
+goal_target(q_heat)       --> [heat].
+goal_target(q_heat)       --> [heat, energy].
+goal_target(c_heat)       --> [specific, heat].
+goal_target(c_heat)       --> [specific, heat, capacity].
+goal_target(delta_temp)   --> [temperature, difference].
+goal_target(delta_temp)   --> [change, in, temperature].
+
 
 
 goal_target(m)     --> [mass].
@@ -626,6 +672,13 @@ determine_name_from_unit(k, temp).
 determine_name_from_unit(mole, n_amount).
 determine_name_from_unit(mol, n_amount).
 determine_name_from_unit(moles, n_amount).
+determine_name_from_unit(n_m, torque).
+determine_name_from_unit(kg_m2, i_inertia).
+determine_name_from_unit(rad_per_s2, alpha_rot).
+determine_name_from_unit(rad_per_s, omega_rot).
+determine_name_from_unit(kg_m2_per_s, l_ang_mom).
+determine_name_from_unit(j_per_kg_k, c_heat).
+
 
 
 
@@ -710,6 +763,16 @@ filler_word(period).
 filler_word(temperature).
 filler_word(mole).
 filler_word(moles).
+filler_word(torque).
+filler_word(inertia).
+filler_word(angular).
+filler_word(momentum).
+filler_word(heat).
+filler_word(specific).
+filler_word(capacity).
+filler_word(difference).
+filler_word(change).
+
 
 
 
@@ -747,7 +810,17 @@ initialize_state(ParsedVars, FullState) :-
         var(t_period, _, [0,0,1,0,0,0,0], 1.0),
         var(n_amount, _, [0,0,0,0,0,1,0], 1.0),
         var(r_gas, 8.314462618, [2,1,-2,0,-1,-1,0], 1.0),
-        var(temp, _, [0,0,0,0,1,0,0], 1.0)
+        var(temp, _, [0,0,0,0,1,0,0], 1.0),
+        var(torque, _, [2,1,-2,0,0,0,0], 1.0),
+        var(i_inertia, _, [2,1,0,0,0,0,0], 1.0),
+        var(alpha_rot, _, [0,0,-2,0,0,0,0], 1.0),
+        var(omega_rot, _, [0,0,-1,0,0,0,0], 1.0),
+        var(l_ang_mom, _, [2,1,-1,0,0,0,0], 1.0),
+        var(ke_rot, _, [2,1,-2,0,0,0,0], 1.0),
+        var(q_heat, _, [2,1,-2,0,0,0,0], 1.0),
+        var(c_heat, _, [2,0,-2,0,-1,0,0], 1.0),
+        var(delta_temp, _, [0,0,0,0,1,0,0], 1.0)
+
 
 
 
@@ -818,6 +891,16 @@ get_goal_unit(t_period, s).
 get_goal_unit(n_amount, mole).
 get_goal_unit(r_gas, j_per_mol_k).
 get_goal_unit(temp, kelvin).
+get_goal_unit(torque, n_m).
+get_goal_unit(i_inertia, kg_m2).
+get_goal_unit(alpha_rot, rad_per_s2).
+get_goal_unit(omega_rot, rad_per_s).
+get_goal_unit(l_ang_mom, kg_m2_per_s).
+get_goal_unit(ke_rot, joule).
+get_goal_unit(q_heat, joule).
+get_goal_unit(c_heat, j_per_kg_k).
+get_goal_unit(delta_temp, kelvin).
+
 
 
 
@@ -881,9 +964,22 @@ run_tests :-
     writeln("Input: 'volume of 0.024 m3 and temperature of 300 kelvin and 1 mol find pressure'"),
     solve_nl("volume of 0.024 m3 and temperature of 300 kelvin and 1 mol find pressure", _),
 
+    writeln("\n--- TEST 13: Torque ---"),
+    writeln("Input: 'torque of 10 n_m and inertia of 2 kg_m2 find angular acceleration'"),
+    solve_nl("torque of 10 n_m and inertia of 2 kg_m2 find angular acceleration", _),
+
+    writeln("\n--- TEST 14: Rotational Kinetic Energy ---"),
+    writeln("Input: 'inertia of 4 kg_m2 moving at 3 rad_per_s find rotational kinetic energy'"),
+    solve_nl("inertia of 4 kg_m2 moving at 3 rad_per_s find rotational kinetic energy", _),
+
+    writeln("\n--- TEST 15: Heat Energy ---"),
+    writeln("Input: 'mass of 2 kg and specific heat of 4186 j_per_kg_k and temperature difference of 10 k find heat'"),
+    solve_nl("mass of 2 kg and specific heat of 4186 j_per_kg_k and temperature difference of 10 k find heat", _),
+
     writeln("\n=================================================="),
     writeln("TEST SUITE COMPLETE"),
     writeln("==================================================").
+
 
 
 
