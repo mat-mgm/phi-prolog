@@ -101,6 +101,18 @@ unit(a,      [0,0,0,1,0,0,0], 1.0).
 unit(ohm,    [2,1,-3,-2,0,0,0], 1.0).
 unit(r,      [2,1,-3,-2,0,0,0], 1.0).
 
+% Word plural aliases
+unit(meters,    [1,0,0,0,0,0,0], 1.0).
+unit(kilograms, [0,1,0,0,0,0,0], 1.0).
+unit(seconds,   [0,0,1,0,0,0,0], 1.0).
+unit(hours,     [0,0,1,0,0,0,0], 3600.0).
+unit(minutes,   [0,0,1,0,0,0,0], 60.0).
+unit(watts,     [2,1,-3,0,0,0,0], 1.0).
+unit(volts,     [2,1,-3,-1,0,0,0], 1.0).
+unit(amps,      [0,0,0,1,0,0,0], 1.0).
+unit(ohms,      [2,1,-3,-2,0,0,0], 1.0).
+
+
 %% ==========================================
 %% EQUATION REGISTRY & INFERENCE/LEARNING
 %% ==========================================
@@ -390,15 +402,40 @@ get_f_score([_, _, F, _], F).
 %% NATURAL LANGUAGE DCG GRAMMAR & PARSER
 %% ==========================================
 
-% Tokenizer
+% Tokenizer (Punctuation-Aware and Case-Insensitive)
 tokenize(String, Tokens) :-
-    atom_string(Atom, String),
-    atomic_list_concat(Words, ' ', Atom),
-    maplist(convert_token, Words, Tokens).
+    string_lower(String, LowerString),
+    string_codes(LowerString, Codes),
+    maplist(replace_punctuation, Codes, CleanCodes),
+    string_codes(CleanString, CleanCodes),
+    split_string(CleanString, " ", " ", WordStrings),
+    exclude(==(""), WordStrings, NonEmptyStrings),
+    maplist(convert_token, NonEmptyStrings, Tokens).
 
-convert_token(Word, Number) :-
-    atom_number(Word, Number), !.
-convert_token(Word, Word).
+replace_punctuation(Code, 32) :- % replace punctuation with space (code 32)
+    member(Code, [44, 63, 33, 58, 59, 40, 41, 91, 93, 34, 39]), !. % , ? ! : ; ( ) [ ] " '
+replace_punctuation(Code, Code).
+
+convert_token(WordStr, Number) :-
+    number_string(Number, WordStr), !.
+convert_token(WordStr, WordAtom) :-
+    string_codes(WordStr, Codes),
+    strip_trailing_dots(Codes, CleanCodes),
+    string_codes(CleanWordStr, CleanCodes),
+    (   number_string(Number, CleanWordStr)
+    ->  Number = Number
+    ;   atom_string(WordAtom, CleanWordStr)
+    ).
+
+strip_trailing_dots(Codes, CleanCodes) :-
+    reverse(Codes, Rev),
+    strip_leading_dots(Rev, RevClean),
+    reverse(RevClean, CleanCodes).
+
+strip_leading_dots([46|Rest], Clean) :- !, % code 46 is '.'
+    strip_leading_dots(Rest, Clean).
+strip_leading_dots(Cs, Cs).
+
 
 % DCG Rules
 sentence(State, Goal) -->
@@ -484,6 +521,16 @@ determine_name_from_unit(r, res).
 determine_name_from_unit(m, s).
 determine_name_from_unit(km, s).
 determine_name_from_unit(cm, s).
+determine_name_from_unit(meters, s).
+determine_name_from_unit(kilograms, m).
+determine_name_from_unit(seconds, t).
+determine_name_from_unit(hours, t).
+determine_name_from_unit(minutes, t).
+determine_name_from_unit(watts, p).
+determine_name_from_unit(volts, volts).
+determine_name_from_unit(amps, amp).
+determine_name_from_unit(ohms, res).
+
 
 number_or_float(N) --> [N], { number(N) }.
 unit_name(UName, Dim, Scale) --> [UName], { unit(UName, Dim, Scale) }.
@@ -659,6 +706,11 @@ run_tests :-
     writeln("Input: 'object of 5 kg mass at height of 10 m find potential energy'"),
     solve_nl("object of 5 kg mass at height of 10 m find potential energy", _),
     
+    writeln("\n--- TEST 6: Robust Punctuation & Case-Insensitive Parsing ---"),
+    writeln("Input: 'Mass of 2 kg, starting from rest, accelerates to 20 mps in 5 s. Find force.'"),
+    solve_nl("Mass of 2 kg, starting from rest, accelerates to 20 mps in 5 s. Find force.", _),
+
     writeln("\n=================================================="),
     writeln("TEST SUITE COMPLETE"),
     writeln("==================================================").
+
