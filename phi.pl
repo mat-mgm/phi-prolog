@@ -151,6 +151,8 @@ base_eq(power,            p = volts * amp).
 base_eq(gravity,          f = g_const * m1 * m2 / (r * r)).
 base_eq(density,          density = m / vol).
 base_eq(hydrostatic_pres, pressure = density * g * h).
+base_eq(centripetal_acc,  a = v * v / r).
+
 
 
 base_eq_normalized(Name, NormalEq) :-
@@ -482,6 +484,9 @@ phrase_item(var(h, N, Dim, Scale)) --> [height, of], number_or_float(N), unit_na
 phrase_item(var(h, N, Dim, Scale)) --> [height], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(vol, N, Dim, Scale)) --> [volume, of], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(vol, N, Dim, Scale)) --> [volume], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(r, N, Dim, Scale)) --> [separation, of], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(r, N, Dim, Scale)) --> [radius, of], number_or_float(N), unit_name(_, Dim, Scale).
+
 
 
 phrase_item(var(Name, N, Dim, Scale)) -->
@@ -776,8 +781,13 @@ run_tests :-
     writeln("Input: 'density of 1000 kg_per_m3 at height of 10 m find pressure'"),
     solve_nl("density of 1000 kg_per_m3 at height of 10 m find pressure", _),
 
+    writeln("\n--- TEST 9: Circular Motion (Centripetal Acceleration & Newton's 2nd Law) ---"),
+    writeln("Input: 'mass of 2 kg moving at 10 mps with radius of 5 m find force'"),
+    solve_nl("mass of 2 kg moving at 10 mps with radius of 5 m find force", _),
+
     writeln("\n=================================================="),
     writeln("TEST SUITE COMPLETE"),
     writeln("==================================================").
+
 
 
