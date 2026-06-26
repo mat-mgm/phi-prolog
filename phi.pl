@@ -58,6 +58,9 @@ var_dim(ke_rot,   [2,1,-2,0,0,0,0]).
 var_dim(q_heat,   [2,1,-2,0,0,0,0]).
 var_dim(c_heat,   [2,0,-2,0,-1,0,0]).
 var_dim(delta_temp, [0,0,0,0,1,0,0]).
+var_dim(theta,      [0,0,0,0,0,0,0]).
+var_dim(f_parallel, [1,1,-2,0,0,0,0]).
+
 
 
 
@@ -168,6 +171,11 @@ unit(kg_m2_per_s, [2,1,-1,0,0,0,0], 1.0).
 % Heat units
 unit(j_per_kg_k, [2,0,-2,0,-1,0,0], 1.0).
 
+% Angle units
+unit(rad,        [0,0,0,0,0,0,0], 1.0).
+unit(deg,        [0,0,0,0,0,0,0], 0.017453292519943295).
+
+
 
 
 
@@ -209,6 +217,8 @@ base_eq(torque_eq,        torque = i_inertia * alpha_rot).
 base_eq(rotational_ke,    ke_rot = 0.5 * i_inertia * omega_rot * omega_rot).
 base_eq(angular_momentum, l_ang_mom = i_inertia * omega_rot).
 base_eq(heat_energy,      q_heat = m * c_heat * delta_temp).
+base_eq(inclined_plane,   f_parallel = m * g * sin(theta)).
+
 
 
 
@@ -264,6 +274,11 @@ to_pow(A - B, SA - SB) :- !, to_pow(A, SA), to_pow(B, SB).
 to_pow(A / B, SA / SB) :- !, to_pow(A, SA), to_pow(B, SB).
 to_pow(A^B, SA^SB) :- !, to_pow(A, SA), to_pow(B, SB).
 to_pow(sqrt(A), sqrt(SA)) :- !, to_pow(A, SA).
+to_pow(sin(A), sin(SA)) :- !, to_pow(A, SA).
+to_pow(cos(A), cos(SA)) :- !, to_pow(A, SA).
+to_pow(asin(A), asin(SA)) :- !, to_pow(A, SA).
+to_pow(acos(A), acos(SA)) :- !, to_pow(A, SA).
+
 
 % solve_for(Equation, Target, IsolatedExpr)
 solve_for(LHS = RHS, Target, Expr) :-
@@ -311,6 +326,15 @@ isolate(L = A^B, Target, Result) :-
     isolate(log(L)/log(A) = B, Target, Result).
 isolate(L = sqrt(A), Target, Result) :-
     isolate(L^2 = A, Target, Result).
+isolate(L = sin(A), Target, Result) :- !,
+    isolate(asin(L) = A, Target, Result).
+isolate(L = cos(A), Target, Result) :- !,
+    isolate(acos(L) = A, Target, Result).
+isolate(L = asin(A), Target, Result) :- !,
+    isolate(sin(L) = A, Target, Result).
+isolate(L = acos(A), Target, Result) :- !,
+    isolate(cos(L) = A, Target, Result).
+
 
 % contains(Expr, Target)
 contains(Target, Target) :- !.
@@ -321,6 +345,11 @@ contains(A * B, Target) :- (contains(A, Target); contains(B, Target)), !.
 contains(A / B, Target) :- (contains(A, Target); contains(B, Target)), !.
 contains(A^B, Target) :- (contains(A, Target); contains(B, Target)), !.
 contains(sqrt(A), Target) :- contains(A, Target), !.
+contains(sin(A), Target) :- contains(A, Target), !.
+contains(cos(A), Target) :- contains(A, Target), !.
+contains(asin(A), Target) :- contains(A, Target), !.
+contains(acos(A), Target) :- contains(A, Target), !.
+
 
 %% ==========================================
 %% MATHEMATICAL PROPAGATION & MATH EVAL
@@ -340,6 +369,11 @@ expr_vars(A * B, Vs) :- !, expr_vars(A, VA), expr_vars(B, VB), append(VA, VB, VA
 expr_vars(A / B, Vs) :- !, expr_vars(A, VA), expr_vars(B, VB), append(VA, VB, VAB), list_to_set(VAB, Vs).
 expr_vars(A^B, Vs) :- !, expr_vars(A, VA), expr_vars(B, VB), append(VA, VB, VAB), list_to_set(VAB, Vs).
 expr_vars(sqrt(A), Vs) :- !, expr_vars(A, Vs).
+expr_vars(sin(A), Vs) :- !, expr_vars(A, Vs).
+expr_vars(cos(A), Vs) :- !, expr_vars(A, Vs).
+expr_vars(asin(A), Vs) :- !, expr_vars(A, Vs).
+expr_vars(acos(A), Vs) :- !, expr_vars(A, Vs).
+
 
 % Substitute state variable values into math term
 substitute_vars(X, _, X) :- number(X), !.
@@ -356,6 +390,11 @@ substitute_vars(A * B, S, SA * SB) :- substitute_vars(A, S, SA), substitute_vars
 substitute_vars(A / B, S, SA / SB) :- substitute_vars(A, S, SA), substitute_vars(B, S, SB).
 substitute_vars(A^B, S, SA^SB) :- substitute_vars(A, S, SA), substitute_vars(B, S, SB).
 substitute_vars(sqrt(A), S, sqrt(SA)) :- substitute_vars(A, S, SA).
+substitute_vars(sin(A), S, sin(SA)) :- substitute_vars(A, S, SA).
+substitute_vars(cos(A), S, cos(SA)) :- substitute_vars(A, S, SA).
+substitute_vars(asin(A), S, asin(SA)) :- substitute_vars(A, S, SA).
+substitute_vars(acos(A), S, acos(SA)) :- substitute_vars(A, S, SA).
+
 
 % substitute_vars_symbolic
 substitute_vars_symbolic(X, _, X) :- number(X), !.
@@ -372,6 +411,11 @@ substitute_vars_symbolic(A * B, S, SA * SB) :- substitute_vars_symbolic(A, S, SA
 substitute_vars_symbolic(A / B, S, SA / SB) :- substitute_vars_symbolic(A, S, SA), substitute_vars_symbolic(B, S, SB).
 substitute_vars_symbolic(A^B, S, SA^SB) :- substitute_vars_symbolic(A, S, SA), substitute_vars_symbolic(B, S, SB).
 substitute_vars_symbolic(sqrt(A), S, sqrt(SA)) :- substitute_vars_symbolic(A, S, SA).
+substitute_vars_symbolic(sin(A), S, sin(SA)) :- substitute_vars_symbolic(A, S, SA).
+substitute_vars_symbolic(cos(A), S, cos(SA)) :- substitute_vars_symbolic(A, S, SA).
+substitute_vars_symbolic(asin(A), S, asin(SA)) :- substitute_vars_symbolic(A, S, SA).
+substitute_vars_symbolic(acos(A), S, acos(SA)) :- substitute_vars_symbolic(A, S, SA).
+
 
 % Evaluate the math using either is/2 or CLP(R)
 evaluate_math(Expr, Value) :-
@@ -414,6 +458,11 @@ eval_dim(A^B, State, Dim) :-
 eval_dim(sqrt(A), State, Dim) :-
     eval_dim(A, State, DimA),
     dim_scale(DimA, 0.5, Dim).
+eval_dim(sin(A), State, [0,0,0,0,0,0,0]) :- !, eval_dim(A, State, [0,0,0,0,0,0,0]).
+eval_dim(cos(A), State, [0,0,0,0,0,0,0]) :- !, eval_dim(A, State, [0,0,0,0,0,0,0]).
+eval_dim(asin(A), State, [0,0,0,0,0,0,0]) :- !, eval_dim(A, State, [0,0,0,0,0,0,0]).
+eval_dim(acos(A), State, [0,0,0,0,0,0,0]) :- !, eval_dim(A, State, [0,0,0,0,0,0,0]).
+
 
 %% ==========================================
 %% SEARCH & PLANNING ENGINE (A* SEARCH)
@@ -455,6 +504,7 @@ astar([[State, _, _, Path]|_], Target, Path, Value) :-
 astar([[State, G, _, Path]|Rest], Target, FinalPath, Value) :-
     findall([NextState, G2, F, [Step|Path]],
         (
+            % Option 1: Single equation step
             learned_eq(EqName, TargetName = Expr),
             member(var(TargetName, Val, _, _), State),
             var(Val),
@@ -471,8 +521,24 @@ astar([[State, G, _, Path]|Rest], Target, FinalPath, Value) :-
             G2 is G + 1,
             heuristic(NextState, H),
             F is G2 + H
+        ;
+            % Option 2: Simultaneous equation system step
+            can_solve_simultaneous(EqName1, EqName2, State, TargetName, Target2, Eq1, Eq2),
+            substitute_vars_simultaneous(Eq1, State, [TargetName, Target2], [LV1, LV2], SubEq1),
+            substitute_vars_simultaneous(Eq2, State, [TargetName, Target2], [LV1, LV2], SubEq2),
+            evaluate_simultaneous(SubEq1, SubEq2, LV1, LV2, Val1, Val2),
+            copy_term(State, NextState),
+            get_var(TargetName, NextState, var(TargetName, NewVal1, _, _)),
+            NewVal1 = Val1,
+            get_var(Target2, NextState, var(Target2, NewVal2, _, _)),
+            NewVal2 = Val2,
+            Step = step_simultaneous(EqName1, EqName2, TargetName, Target2, Val1, Val2),
+            G2 is G + 1,
+            heuristic(NextState, H),
+            F is G2 + H
         ),
         Children),
+
     append(Rest, Children, Open),
     keys_sort_by_f(Open, SortedOpen),
     astar(SortedOpen, Target, FinalPath, Value).
@@ -483,6 +549,64 @@ keys_sort_by_f(Queue, Sorted) :-
     pairs_values(SortedPairs, Sorted).
 
 get_f_score([_, _, F, _], F).
+
+can_solve_simultaneous(EqName1, EqName2, State, V1, V2, Eq1, Eq2) :-
+    EqName1 @< EqName2,
+    base_eq(EqName1, Eq1),
+    base_eq(EqName2, Eq2),
+    expr_vars(Eq1, Vars1),
+    expr_vars(Eq2, Vars2),
+    union(Vars1, Vars2, AllVars),
+    member(V1, AllVars),
+    member(V2, AllVars),
+    V1 @< V2,
+    \+ var_known(State, V1),
+    \+ var_known(State, V2),
+    subtract(AllVars, [V1, V2], Others),
+    forall(member(O, Others), var_known(State, O)).
+
+evaluate_simultaneous(SubEq1, SubEq2, LV1, LV2, Val1, Val2) :-
+    catch(
+        (
+            clpr_post(SubEq1),
+            clpr_post(SubEq2),
+            ground(LV1),
+            ground(LV2)
+        ),
+        _,
+        fail
+    ),
+    Val1 = LV1,
+    Val2 = LV2.
+
+clpr_post(Eq) :- { Eq }.
+
+substitute_vars_simultaneous(X, _, _TargetVars, _LogicVars, SubVal) :-
+    number(X), !, SubVal = X.
+
+substitute_vars_simultaneous(X, State, TargetVars, LogicVars, SubVal) :-
+    atom(X), !,
+    (nth0(Idx, TargetVars, X) ->
+        nth0(Idx, LogicVars, SubVal)
+    ;
+        (get_var(X, State, var(X, V, _, _)) ->
+            (nonvar(V) -> SubVal = V ; SubVal = X)
+        ;
+            (X == g_const -> SubVal = 6.6743e-11 ; SubVal = X)
+        )
+    ).
+substitute_vars_simultaneous(A + B, S, T, L, SA + SB) :- !, substitute_vars_simultaneous(A, S, T, L, SA), substitute_vars_simultaneous(B, S, T, L, SB).
+substitute_vars_simultaneous(A - B, S, T, L, SA - SB) :- !, substitute_vars_simultaneous(A, S, T, L, SA), substitute_vars_simultaneous(B, S, T, L, SB).
+substitute_vars_simultaneous(A * B, S, T, L, SA * SB) :- !, substitute_vars_simultaneous(A, S, T, L, SA), substitute_vars_simultaneous(B, S, T, L, SB).
+substitute_vars_simultaneous(A / B, S, T, L, SA / SB) :- !, substitute_vars_simultaneous(A, S, T, L, SA), substitute_vars_simultaneous(B, S, T, L, SB).
+substitute_vars_simultaneous(A^B, S, T, L, SA^SB) :- !, substitute_vars_simultaneous(A, S, T, L, SA), substitute_vars_simultaneous(B, S, T, L, SB).
+substitute_vars_simultaneous(A = B, S, T, L, SA = SB) :- !, substitute_vars_simultaneous(A, S, T, L, SA), substitute_vars_simultaneous(B, S, T, L, SB).
+substitute_vars_simultaneous(sqrt(A), S, T, L, sqrt(SA)) :- !, substitute_vars_simultaneous(A, S, T, L, SA).
+substitute_vars_simultaneous(sin(A), S, T, L, sin(SA)) :- !, substitute_vars_simultaneous(A, S, T, L, SA).
+substitute_vars_simultaneous(cos(A), S, T, L, cos(SA)) :- !, substitute_vars_simultaneous(A, S, T, L, SA).
+substitute_vars_simultaneous(asin(A), S, T, L, asin(SA)) :- !, substitute_vars_simultaneous(A, S, T, L, SA).
+substitute_vars_simultaneous(acos(A), S, T, L, acos(SA)) :- !, substitute_vars_simultaneous(A, S, T, L, SA).
+
 
 %% ==========================================
 %% NATURAL LANGUAGE DCG GRAMMAR & PARSER
@@ -556,6 +680,11 @@ phrase_item(var(delta_temp, N, Dim, Scale)) --> [temperature, difference, of], n
 phrase_item(var(delta_temp, N, Dim, Scale)) --> [change, in, temperature, of], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(delta_temp, N, Dim, Scale)) --> [temperature, difference], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(delta_temp, N, Dim, Scale)) --> [change, in, temperature], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(f_parallel, N, Dim, Scale)) --> [parallel, force, of], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(f_parallel, N, Dim, Scale)) --> [parallel, force], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(theta, N, Dim, Scale)) --> [angle, of], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(theta, N, Dim, Scale)) --> [angle], number_or_float(N), unit_name(_, Dim, Scale).
+
 
 
 
@@ -611,6 +740,9 @@ goal_target(c_heat)       --> [specific, heat].
 goal_target(c_heat)       --> [specific, heat, capacity].
 goal_target(delta_temp)   --> [temperature, difference].
 goal_target(delta_temp)   --> [change, in, temperature].
+goal_target(f_parallel)   --> [parallel, force].
+goal_target(theta)        --> [angle].
+
 
 
 
@@ -678,6 +810,9 @@ determine_name_from_unit(rad_per_s2, alpha_rot).
 determine_name_from_unit(rad_per_s, omega_rot).
 determine_name_from_unit(kg_m2_per_s, l_ang_mom).
 determine_name_from_unit(j_per_kg_k, c_heat).
+determine_name_from_unit(deg, theta).
+determine_name_from_unit(rad, theta).
+
 
 
 
@@ -772,6 +907,15 @@ filler_word(specific).
 filler_word(capacity).
 filler_word(difference).
 filler_word(change).
+filler_word(parallel).
+filler_word(angle).
+filler_word(uniformly).
+filler_word(on).
+filler_word(inclined).
+filler_word(plane).
+
+
+
 
 
 
@@ -819,7 +963,10 @@ initialize_state(ParsedVars, FullState) :-
         var(ke_rot, _, [2,1,-2,0,0,0,0], 1.0),
         var(q_heat, _, [2,1,-2,0,0,0,0], 1.0),
         var(c_heat, _, [2,0,-2,0,-1,0,0], 1.0),
-        var(delta_temp, _, [0,0,0,0,1,0,0], 1.0)
+        var(delta_temp, _, [0,0,0,0,1,0,0], 1.0),
+        var(theta, _, [0,0,0,0,0,0,0], 1.0),
+        var(f_parallel, _, [1,1,-2,0,0,0,0], 1.0)
+
 
 
 
@@ -865,6 +1012,11 @@ print_steps([step(EqName, TargetName, Expr, SubbedExpr, TargetVal)|Rest]) :-
     format("    Substitution: ~w = ~w~n", [TargetName, SubbedExpr]),
     format("    Computed:     ~w = ~6f~n", [TargetName, TargetVal]),
     print_steps(Rest).
+print_steps([step_simultaneous(EqName1, EqName2, V1, V2, Val1, Val2)|Rest]) :-
+    format("  - simultaneous system: ~w and ~w~n", [EqName1, EqName2]),
+    format("    Solved:       ~w = ~6f, ~w = ~6f~n", [V1, Val1, V2, Val2]),
+    print_steps(Rest).
+
 
 get_goal_unit(f, newton).
 get_goal_unit(a, mps2).
@@ -900,6 +1052,9 @@ get_goal_unit(ke_rot, joule).
 get_goal_unit(q_heat, joule).
 get_goal_unit(c_heat, j_per_kg_k).
 get_goal_unit(delta_temp, kelvin).
+get_goal_unit(theta, deg).
+get_goal_unit(f_parallel, newton).
+
 
 
 
@@ -976,9 +1131,18 @@ run_tests :-
     writeln("Input: 'mass of 2 kg and specific heat of 4186 j_per_kg_k and temperature difference of 10 k find heat'"),
     solve_nl("mass of 2 kg and specific heat of 4186 j_per_kg_k and temperature difference of 10 k find heat", _),
 
+    writeln("\n--- TEST 16: Simultaneous Kinematics System ---"),
+    writeln("Input: 'accelerates uniformly for 5 s traveling 50 m to a final velocity of 15 mps find initial velocity'"),
+    solve_nl("accelerates uniformly for 5 s traveling 50 m to a final velocity of 15 mps find initial velocity", _),
+
+    writeln("\n--- TEST 17: Trigonometric Math (Inclined Plane Force) ---"),
+    writeln("Input: 'object of 10 kg mass on inclined plane with angle of 30 deg find parallel force'"),
+    solve_nl("object of 10 kg mass on inclined plane with angle of 30 deg find parallel force", _),
+
     writeln("\n=================================================="),
     writeln("TEST SUITE COMPLETE"),
     writeln("==================================================").
+
 
 
 
