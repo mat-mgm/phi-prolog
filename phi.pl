@@ -694,6 +694,10 @@ phrase_item(var(h, N, Dim, Scale)) --> [height, of], number_or_float(N), unit_na
 phrase_item(var(h, N, Dim, Scale)) --> [height], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(vol, N, Dim, Scale)) --> [volume, of], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(vol, N, Dim, Scale)) --> [volume], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(m1, N, Dim, Scale)) --> [mass1, of], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(m2, N, Dim, Scale)) --> [mass2, of], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(m1, N, Dim, Scale)) --> [mass1], number_or_float(N), unit_name(_, Dim, Scale).
+phrase_item(var(m2, N, Dim, Scale)) --> [mass2], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(r, N, Dim, Scale)) --> [separation, of], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(r, N, Dim, Scale)) --> [radius, of], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(lambda, N, Dim, Scale)) --> [wavelength, of], number_or_float(N), unit_name(_, Dim, Scale).
@@ -710,12 +714,6 @@ phrase_item(var(f_parallel, N, Dim, Scale)) --> [parallel, force, of], number_or
 phrase_item(var(f_parallel, N, Dim, Scale)) --> [parallel, force], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(theta, N, Dim, Scale)) --> [angle, of], number_or_float(N), unit_name(_, Dim, Scale).
 phrase_item(var(theta, N, Dim, Scale)) --> [angle], number_or_float(N), unit_name(_, Dim, Scale).
-
-
-
-
-
-
 
 phrase_item(var(Name, N, Dim, Scale)) -->
     optional_preposition,

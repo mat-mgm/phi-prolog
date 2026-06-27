@@ -443,11 +443,12 @@ physics_step(orbit, orbit_sim(Px1, Py1, Vx1, Vy1, Px2, Py2, Vx2, Vy2, Trail1, Tr
         Ax2 is -Acc2 * Dx / R,
         Ay2 is -Acc2 * Dy / R,
         
-        % Update velocities (Euler-Cromer)
-        NextVx1 is Vx1 + Ax1 * Dt,
-        NextVy1 is Vy1 + Ay1 * Dt,
-        NextVx2 is Vx2 + Ax2 * Dt,
-        NextVy2 is Vy2 + Ay2 * Dt,
+        % Update velocities (Euler-Cromer) with a small orbital decay (drag)
+        % so they spiral in and collide.
+        NextVx1 is (Vx1 + Ax1 * Dt) * 0.99,
+        NextVy1 is (Vy1 + Ay1 * Dt) * 0.99,
+        NextVx2 is (Vx2 + Ax2 * Dt) * 0.99,
+        NextVy2 is (Vy2 + Ay2 * Dt) * 0.99,
         
         % Update positions
         NextPx1 is Px1 + NextVx1 * Dt,

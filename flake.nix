@@ -14,7 +14,7 @@
           exec ${pkgs.swi-prolog}/bin/swipl -s ${./phi.pl} "$@"
         '';
         phiAnim = pkgs.writeShellScriptBin "phi-anim" ''
-          exec ${pkgs.swi-prolog}/bin/swipl -s ${./phi_anim.pl} "$@"
+          exec ${pkgs.swi-prolog}/bin/swipl -s ${./phi_anim.pl} -- "$@"
         '';
       in
       {

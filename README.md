@@ -79,6 +79,12 @@ This launches a colorized terminal dashboard with 5 interactive simulations:
 *   `[R]`: Reset current simulation
 *   `[Q]`: Quit and return to menu / exit
 
+### Animation Demo
+
+Here is a visual demonstration of the binary orbital simulation running in the terminal:
+
+![Binary Orbital Simulation Demo](assets/orbital_simulation.gif)
+
 ### Example Natural Language Queries
 
 Enter queries as strings to the `solve_nl/2` predicate:
