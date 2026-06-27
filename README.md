@@ -2,6 +2,8 @@
 
 `phi` is a multi-directional, constraint-based classical physics engine and solver written in SWI-Prolog. It translates natural language physics word problems into logic queries, plans solution paths across chained formulas using A* search, and evaluates values and units using CLP(R) (Constraint Logic Programming over Reals).
 
+![Binary Orbital Simulation Demo](assets/orbital_simulation.gif)
+
 ## Key Features
 
 *   **Multi-directional Solving**: Formulas are modeled as pure logical relations. You can solve for any variable in an equation (e.g. solve for acceleration $a$, mass $m$, or force $f$ from $f = m \cdot a$ with the same source code).
@@ -78,12 +80,6 @@ This launches a colorized terminal dashboard with 5 interactive simulations:
 *   `[Tab]`: Cycle between simulations
 *   `[R]`: Reset current simulation
 *   `[Q]`: Quit and return to menu / exit
-
-### Animation Demo
-
-Here is a visual demonstration of the binary orbital simulation running in the terminal:
-
-![Binary Orbital Simulation Demo](assets/orbital_simulation.gif)
 
 ### Example Natural Language Queries
 
